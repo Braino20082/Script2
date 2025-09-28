@@ -4,69 +4,53 @@ local player = Players.LocalPlayer
 
 -- ScreenGui
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "EventStarterGui"
+ScreenGui.Name = "AdminPanelGui"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = player:WaitForChild("PlayerGui")
 
 -- Hauptframe
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 400, 0, 500)
-MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-MainFrame.BackgroundColor3 = Color3.fromRGB(30,30,30)
-MainFrame.BorderSizePixel = 0
+MainFrame.Size = UDim2.new(0, 350, 0, 500)
+MainFrame.Position = UDim2.new(0, 20, 0.5, -250)
+MainFrame.BackgroundColor3 = Color3.fromRGB(40,40,40)
 MainFrame.Active = true
 MainFrame.Draggable = true -- verschiebbar
 MainFrame.Parent = ScreenGui
 
 local corner = Instance.new("UICorner", MainFrame)
-corner.CornerRadius = UDim.new(0.03,0)
+corner.CornerRadius = UDim.new(0.05,0)
 
--- Titelbar
-local TitleBar = Instance.new("Frame")
-TitleBar.Size = UDim2.new(1,0,0,40)
-TitleBar.BackgroundColor3 = Color3.fromRGB(45,45,45)
-TitleBar.BorderSizePixel = 0
-TitleBar.Parent = MainFrame
-
-local TitleCorner = Instance.new("UICorner", TitleBar)
-TitleCorner.CornerRadius = UDim.new(0.03,0)
-
+-- Titel
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1,-40,1,0)
-Title.Position = UDim2.new(0,10,0,0)
+Title.Size = UDim2.new(1,0,0,40)
 Title.BackgroundTransparency = 1
 Title.Text = "Event Starter"
 Title.TextColor3 = Color3.fromRGB(220,220,220)
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 22
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Parent = TitleBar
+Title.TextSize = 24
+Title.Parent = MainFrame
 
 -- Schließen Button
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0,40,1,0)
-CloseBtn.Position = UDim2.new(1,-40,0,0)
-CloseBtn.BackgroundColor3 = Color3.fromRGB(200,50,50)
-CloseBtn.Text = "X"
-CloseBtn.TextColor3 = Color3.new(1,1,1)
-CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.TextSize = 20
-CloseBtn.Parent = TitleBar
+local Close = Instance.new("TextButton")
+Close.Size = UDim2.new(0,40,0,30)
+Close.Position = UDim2.new(1,-45,0,5)
+Close.Text = "X"
+Close.Font = Enum.Font.GothamBold
+Close.TextColor3 = Color3.fromRGB(255,100,100)
+Close.BackgroundColor3 = Color3.fromRGB(70,70,70)
+Close.Parent = MainFrame
+local cc = Instance.new("UICorner", Close)
+cc.CornerRadius = UDim.new(0.3,0)
 
-local CloseCorner = Instance.new("UICorner", CloseBtn)
-CloseCorner.CornerRadius = UDim.new(0.2,0)
-
-CloseBtn.MouseButton1Click:Connect(function()
+Close.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
 end)
 
--- ScrollFrame für Event Buttons
+-- ScrollFrame für Events
 local Scroll = Instance.new("ScrollingFrame")
-Scroll.Size = UDim2.new(1,-20,1,-60)
-Scroll.Position = UDim2.new(0,10,0,50)
+Scroll.Size = UDim2.new(1,-10,1,-50)
+Scroll.Position = UDim2.new(0,5,0,45)
 Scroll.BackgroundTransparency = 1
-Scroll.BorderSizePixel = 0
 Scroll.ScrollBarThickness = 6
 Scroll.CanvasSize = UDim2.new(0,0,0,0)
 Scroll.Parent = MainFrame
@@ -90,34 +74,38 @@ local function getAllRemoteEvents()
     return events
 end
 
--- Button erstellen
+-- Event-Button erstellen
 local function createEventButton(event)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1,-5,0,35)
-    btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+    btn.Size = UDim2.new(1,-10,0,35)
+    btn.BackgroundColor3 = Color3.fromRGB(90,90,90)
     btn.TextColor3 = Color3.fromRGB(220,220,220)
     btn.Font = Enum.Font.Gotham
-    btn.TextSize = 16
-    btn.Text = event.Name
+    btn.TextScaled = true
+    btn.Text = "Event: "..event.Name
     btn.Parent = Scroll
 
     local bcorner = Instance.new("UICorner", btn)
     bcorner.CornerRadius = UDim.new(0.1,0)
 
     btn.MouseButton1Click:Connect(function()
-        warn("Starte Event -> "..event:GetFullName())
-        local ok, err = pcall(function()
-            event:FireServer()
-        end)
-        if not ok then
-            warn("Fehler beim FireServer: "..tostring(err))
+        if event and event:IsA("RemoteEvent") then
+            warn("Starte Event -> "..event:GetFullName())
+            local ok, err = pcall(function()
+                event:FireServer()
+            end)
+            if not ok then
+                warn("Fehler beim FireServer: "..tostring(err))
+            end
+        else
+            warn("Ungültiges RemoteEvent.")
         end
     end)
 end
 
--- Alle Events in GUI anzeigen
-local events = getAllRemoteEvents()
-warn("Gefundene RemoteEvents: "..#events)
-for _, ev in ipairs(events) do
-    createEventButton(ev)
+-- Alle RemoteEvents einfügen
+local remotes = getAllRemoteEvents()
+warn("Gefundene RemoteEvents: "..#remotes)
+for _, r in ipairs(remotes) do
+    createEventButton(r)
 end
