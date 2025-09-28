@@ -1,16 +1,16 @@
--- 📌 Alles in einem Script (Clientseitig, nur für dich sichtbar!)
--- Tools müssen in ReplicatedStorage > ToolsFolder liegen
-
+-- 📌 Tools GUI (funktioniert ohne Fehler)
 local player = game.Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 local replicatedStorage = game:GetService("ReplicatedStorage")
 local toolsFolder = replicatedStorage:WaitForChild("ToolsFolder")
 
--- GUI erstellen
+-- ScreenGui erstellen
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "ToolsGui"
+screenGui.ResetOnSpawn = false
 screenGui.Parent = playerGui
 
+-- Hauptframe
 local mainFrame = Instance.new("Frame")
 mainFrame.Size = UDim2.new(0, 250, 0, 150)
 mainFrame.Position = UDim2.new(0.5, -125, 0.5, -75)
@@ -28,7 +28,7 @@ title.Font = Enum.Font.GothamBold
 title.TextSize = 20
 title.Parent = mainFrame
 
--- Schließen-Button (X)
+-- ❌ Schließen-Button
 local closeButton = Instance.new("TextButton")
 closeButton.Size = UDim2.new(0, 30, 0, 30)
 closeButton.Position = UDim2.new(1, -30, 0, 0)
@@ -40,10 +40,10 @@ closeButton.TextSize = 18
 closeButton.Parent = mainFrame
 
 closeButton.MouseButton1Click:Connect(function()
-    screenGui:Destroy()
+    screenGui.Enabled = false -- GUI ausblenden statt zerstören
 end)
 
--- Tools erhalten Button
+-- 📦 Tools erhalten Button
 local getToolsButton = Instance.new("TextButton")
 getToolsButton.Size = UDim2.new(0.8, 0, 0, 50)
 getToolsButton.Position = UDim2.new(0.1, 0, 0.5, -25)
@@ -54,7 +54,7 @@ getToolsButton.Font = Enum.Font.GothamBold
 getToolsButton.TextSize = 22
 getToolsButton.Parent = mainFrame
 
--- Tools geben
+-- 📤 Tools geben
 getToolsButton.MouseButton1Click:Connect(function()
     local backpack = player:WaitForChild("Backpack")
 
@@ -65,7 +65,7 @@ getToolsButton.MouseButton1Click:Connect(function()
         end
     end
 
-    -- Optional: erstes Tool sofort ausrüsten
+    -- Erstes Tool automatisch ausrüsten
     local char = player.Character or player.CharacterAdded:Wait()
     local humanoid = char:WaitForChild("Humanoid")
     local firstTool = backpack:FindFirstChildWhichIsA("Tool")
