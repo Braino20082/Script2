@@ -38,7 +38,7 @@ ToolRequest.OnServerEvent:Connect(function(player)
 end)
 
 -- LocalScript GUI-Code für den Spieler
-local localScriptSource = [[
+local localScriptSource = 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = game.Players.LocalPlayer
 local ToolRequest = ReplicatedStorage:WaitForChild("ToolRequest")
@@ -74,7 +74,7 @@ end)
 btn.MouseButton1Click:Connect(function()
     ToolRequest:FireServer()
 end)
-]]
+
 
 -- Funktion: LocalScript an Spieler deployen
 local function deployLocalScript(player)
