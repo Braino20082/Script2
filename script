@@ -1,5 +1,56 @@
-for _, part in pairs(workspace:GetDescendants()) do
-    if part:IsA("BasePart") and (part.Name:lower():find("base") or part.Name:lower():find("home")) then
-        print(part.Name, part.Position)
-    end
+-- Services
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+
+-- GUI Setup
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ToolPassGUI"
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 200, 0, 120)
+MainFrame.Position = UDim2.new(0.4, 0, 0.4, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25,25,25)
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = ScreenGui
+
+local function createButton(name, position, parent)
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(0.8,0,0,40)
+    button.Position = position
+    button.Text = name
+    button.BackgroundColor3 = Color3.fromRGB(30,30,30)
+    button.TextColor3 = Color3.fromRGB(0,255,0)
+    button.Font = Enum.Font.GothamBold
+    button.TextScaled = true
+    button.Parent = parent
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0.2,0)
+    corner.Parent = button
+    return button
 end
+
+-- Buttons
+local ToolButton = createButton("Give All Tools", UDim2.new(0.1,0,0.1,0), MainFrame)
+local PassButton = createButton("Pass Game", UDim2.new(0.1,0,0.55,0), MainFrame)
+
+-- Tool Giving Logic
+ToolButton.MouseButton1Click:Connect(function()
+    for _, tool in pairs(ReplicatedStorage:GetDescendants()) do
+        if tool:IsA("Tool") then
+            tool:Clone().Parent = LocalPlayer.Backpack
+        end
+    end
+end)
+
+-- Game Pass Logic (Beispiel: remote firing)
+PassButton.MouseButton1Click:Connect(function()
+    local passRemote = ReplicatedStorage:FindFirstChild("GamePassRemote") -- ändere Name nach Spiel
+    if passRemote and passRemote:IsA("RemoteEvent") then
+        passRemote:FireServer()
+    else
+        warn("Kein Game-Pass Remote gefunden")
+    end
+end)
