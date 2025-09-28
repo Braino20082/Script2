@@ -1,233 +1,59 @@
--- StarterPlayerScripts/BrainrotClient.lua
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
-local player = Players.LocalPlayer
-local PlayerGui = player:WaitForChild("PlayerGui")
-local Workspace = game:GetService("Workspace")
+-- ======= CONFIG =======
+local NPCs = workspace.NPCs:GetChildren() -- Alle NPCs im Spiel
+local SHOP_ITEMS = {
+    {Name = "Sword", Price = 100},
+    {Name = "Shield", Price = 150},
+    {Name = "Potion", Price = 50}
+}
+local CURRENCY = "Coins" -- Name der Spieler-Währung
 
--- === GUI erstellen ===
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "BrainrotGUI"
-screenGui.Parent = PlayerGui
-screenGui.ResetOnSpawn = false
-
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0.25, 0, 0.25, 0)
-frame.Position = UDim2.new(0.5, -0.125 * workspace.CurrentCamera.ViewportSize.X, 0.05, 0)
-frame.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
-frame.BorderSizePixel = 0
-frame.AnchorPoint = Vector2.new(0, 0)
-frame.ClipsDescendants = true
-frame.Parent = screenGui
-
--- Drag Funktion
-local dragging = false
-local dragInput, mousePos, framePos
-local function update(input)
-    local delta = input.Position - mousePos
-    frame.Position = UDim2.new(frame.Position.X.Scale, framePos.X + delta.X, frame.Position.Y.Scale, framePos.Y + delta.Y)
+-- ======= HELPER FUNCTIONS =======
+-- Prüft, ob der Spieler genug Geld hat
+local function canAfford(player, amount)
+    local leaderstats = player:FindFirstChild("leaderstats")
+    if leaderstats and leaderstats:FindFirstChild(CURRENCY) then
+        return leaderstats[CURRENCY].Value >= amount
+    end
+    return false
 end
 
-frame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        mousePos = input.Position
-        framePos = frame.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
+-- Zieht Geld vom Spieler ab
+local function deductMoney(player, amount)
+    local leaderstats = player:FindFirstChild("leaderstats")
+    if leaderstats and leaderstats:FindFirstChild(CURRENCY) then
+        leaderstats[CURRENCY].Value -= amount
+    end
+end
+
+-- Sendet eine Nachricht an den Spieler
+local function notifyPlayer(player, message)
+    player:SendNotification({
+        Title = "Shop",
+        Text = message,
+        Duration = 3
+    })
+end
+
+-- ======= SHOP LOGIK =======
+local function handlePurchase(player, item)
+    if canAfford(player, item.Price) then
+        deductMoney(player, item.Price)
+        -- Hier Item geben (z.B. ins Inventory)
+        notifyPlayer(player, "Du hast " .. item.Name .. " gekauft!")
+    else
+        notifyPlayer(player, "Du hast nicht genug Coins!")
+    end
+end
+
+-- ======= NPC INTERAKTION =======
+for _, npc in pairs(NPCs) do
+    if npc:IsA("Model") and npc:FindFirstChild("ClickDetector") then
+        npc.ClickDetector.MouseClick:Connect(function(player)
+            -- Einfaches GUI-Dialog-System
+            for _, item in pairs(SHOP_ITEMS) do
+                -- Beispiel: Sofortkauf (du kannst hier GUI-Integration machen)
+                handlePurchase(player, item)
             end
         end)
     end
-end)
-
-frame.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement then
-        dragInput = input
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
-        update(input)
-    end
-end)
-
--- Icon & Titel
-local icon = Instance.new("ImageLabel")
-icon.Size = UDim2.new(0.15, 0, 0.25, 0)
-icon.Position = UDim2.new(0.03, 0, 0.1, 0)
-icon.BackgroundTransparency = 1
-icon.Image = "rbxassetid://12846818277"
-icon.Parent = frame
-
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(0.7, 0, 0.2, 0)
-title.Position = UDim2.new(0.2, 0, 0.1, 0)
-title.Text = "Brainrot Status"
-title.TextScaled = true
-title.TextColor3 = Color3.fromRGB(255, 255, 255)
-title.BackgroundTransparency = 1
-title.Font = Enum.Font.SourceSansBold
-title.Parent = frame
-
--- X Button
-local closeBtn = Instance.new("TextButton")
-closeBtn.Size = UDim2.new(0.08, 0, 0.15, 0)
-closeBtn.Position = UDim2.new(0.9, 0, 0.05, 0)
-closeBtn.Text = "X"
-closeBtn.Font = Enum.Font.SourceSansBold
-closeBtn.TextScaled = true
-closeBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
-closeBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
-closeBtn.Parent = frame
-closeBtn.MouseButton1Click:Connect(function()
-    screenGui:Destroy()
-end)
-
--- Status Label
-local statusLabel = Instance.new("TextLabel")
-statusLabel.Size = UDim2.new(0.7, 0, 0.15, 0)
-statusLabel.Position = UDim2.new(0.2, 0, 0.35, 0)
-statusLabel.Text = "Bereit"
-statusLabel.TextScaled = true
-statusLabel.TextColor3 = Color3.fromRGB(200, 200, 255)
-statusLabel.BackgroundTransparency = 1
-statusLabel.Font = Enum.Font.SourceSansBold
-statusLabel.Parent = frame
-
--- ON/OFF Variablen
-local stealBrainrot = false
-local autoSteal = false
-local debounce = false
-
--- Funktion um Status zu ändern
-local function setStatus(text, color)
-    statusLabel.Text = text
-    if color then
-        statusLabel.TextColor3 = color
-    end
 end
-
--- Button erstellen
-local function createButton(name, posY, callback)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0.4, 0, 0.2, 0)
-    btn.Position = UDim2.new(0.05, 0, 0.6 + posY*0.25, 0)
-    btn.Text = name .. ": OFF"
-    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.Font = Enum.Font.SourceSansBold
-    btn.TextScaled = true
-    btn.Parent = frame
-
-    btn.MouseButton1Click:Connect(function()
-        local state = callback()
-        btn.Text = name .. ": " .. (state and "ON" or "OFF")
-    end)
-end
-
--- Buttons
-createButton("Steal Brainrot", 0, function()
-    stealBrainrot = not stealBrainrot
-    return stealBrainrot
-end)
-createButton("Auto Steal", 1, function()
-    autoSteal = not autoSteal
-    return autoSteal
-end)
-
--- Nächstes Brainrot finden
-local function getClosestBrainrot()
-    local closest = nil
-    local dist = math.huge
-    for _, obj in ipairs(Workspace:GetDescendants()) do
-        if obj.Name == "Brainrot" and obj:IsA("BasePart") then
-            local d = (obj.Position - player.Character.HumanoidRootPart.Position).Magnitude
-            if d < dist then
-                dist = d
-                closest = obj
-            end
-        end
-    end
-    return closest
-end
-
--- Base Position
-local basePosition = Vector3.new(0, 10, 0) -- <- hier anpassen
-
--- Smooth Fly Funktion
-local function flyTo(position, speed)
-    local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    speed = speed or 200 -- studs per second
-    local start = hrp.Position
-    local distance = (position - start).Magnitude
-    local time = distance / speed
-    local elapsed = 0
-    while elapsed < time do
-        RunService.RenderStepped:Wait()
-        elapsed = elapsed + RunService.RenderStepped:Wait()
-        local alpha = math.clamp(elapsed / time, 0, 1)
-        hrp.CFrame = CFrame.new(start:Lerp(position, alpha))
-    end
-end
-
--- Stehlen Funktion
-local function steal(brainrot)
-    if not brainrot or not brainrot:IsA("BasePart") then return end
-    if debounce then return end
-    debounce = true
-    setStatus("Fliege zu Brainrot...", Color3.fromRGB(255, 200, 50))
-    flyTo(brainrot.Position + Vector3.new(0,5,0))
-    setStatus("Fliege zu Base...", Color3.fromRGB(255, 200, 50))
-    flyTo(basePosition + Vector3.new(0,5,0))
-    setStatus("Stehle Brainrot!", Color3.fromRGB(50, 255, 50))
-    wait(0.5)
-    setStatus("Bereit", Color3.fromRGB(200, 200, 255))
-    debounce = false
-end
-
--- Auto Steal Loop
-spawn(function()
-    while true do
-        wait(0.2)
-        if autoSteal then
-            local brainrot = getClosestBrainrot()
-            if brainrot then
-                steal(brainrot)
-            else
-                setStatus("Kein Brainrot in Reichweite", Color3.fromRGB(255,100,100))
-            end
-        end
-    end
-end)
-
--- Brainrot überwachen für manuelles Stehlen
-local function monitorBrainrot(brainrot)
-    if not brainrot:IsA("BasePart") then return end
-    brainrot.Touched:Connect(function(hit)
-        local char = hit.Parent
-        if char and char:FindFirstChild("Humanoid") then
-            local plr = Players:GetPlayerFromCharacter(char)
-            if plr == player and stealBrainrot then
-                steal(brainrot)
-            end
-        end
-    end)
-end
-
--- Existierende Brainrots überwachen
-for _, obj in ipairs(Workspace:GetDescendants()) do
-    if obj.Name == "Brainrot" then
-        monitorBrainrot(obj)
-    end
-end
-
--- Neue Brainrots überwachen
-Workspace.DescendantAdded:Connect(function(obj)
-    if obj.Name == "Brainrot" then
-        monitorBrainrot(obj)
-    end
-end)
