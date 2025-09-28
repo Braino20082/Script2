@@ -1,94 +1,235 @@
--- Services
+-- Tool & GamePass GUI (LocalScript)
+-- Funktionen:
+--  - Give All Tools (klont Tools aus ReplicatedStorage, equippt sie)
+--  - Give GamePasses (simuliert VIP, 2x Geld, Admin-Befehle; macht visible Tools/Badges)
+--  - X Button schliesst GUI
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
 
--- GUI Setup
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- ---------- CONFIG ----------
+-- Namen der GamePass-Assets (falls das Spiel schon passende Tools/Accessories hat, werden diese verwendet)
+local GAMEPASS_MAP = {
+    ["VIP"] = {"VIP_Crown", "VIPTool"},         -- suche zuerst Accessory/Tool mit diesem Namen
+    ["2x Geld"] = {"DoubleMoneyBadge", "2xMoneyTool"},
+    ["Admin-Befehle"] = {"AdminBadge", "AdminTool"},
+}
+-- Falls im ReplicatedStorage ein Remote exists, um Server-Items anzufordern, benenne ihn hier:
+local SERVER_ASSET_REQUEST_REMOTE_NAME = "RequestServerGive" -- optional, falls vorhanden
+
+-- ---------- GUI ----------
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "ToolPassGUI"
-ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.Parent = PlayerGui
+ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 220, 0, 160)
+MainFrame.Name = "Main"
+MainFrame.Size = UDim2.new(0, 260, 0, 160)
 MainFrame.Position = UDim2.new(0.4, 0, 0.4, 0)
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 MainFrame.BackgroundColor3 = Color3.fromRGB(25,25,25)
 MainFrame.BorderSizePixel = 0
-MainFrame.ClipsDescendants = true
 MainFrame.Parent = ScreenGui
 
-local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(0.2,0)
-UICorner.Parent = MainFrame
+local UICorner = Instance.new("UICorner", MainFrame)
+UICorner.CornerRadius = UDim.new(0.12, 0)
+
+-- Title
+local Title = Instance.new("TextLabel", MainFrame)
+Title.Size = UDim2.new(1, -40, 0, 30)
+Title.Position = UDim2.new(0, 10, 0, 6)
+Title.BackgroundTransparency = 1
+Title.Text = "Tools & GamePass (sim)"
+Title.TextColor3 = Color3.fromRGB(0, 255, 0)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 18
+Title.TextXAlignment = Enum.TextXAlignment.Left
 
 -- Close Button (X)
-local CloseButton = Instance.new("TextButton")
-CloseButton.Size = UDim2.new(0, 30, 0, 30)
-CloseButton.Position = UDim2.new(1, -35, 0, 5)
+local CloseButton = Instance.new("TextButton", MainFrame)
+CloseButton.Size = UDim2.new(0, 28, 0, 28)
+CloseButton.Position = UDim2.new(1, -36, 0, 6)
 CloseButton.Text = "X"
-CloseButton.TextColor3 = Color3.fromRGB(255,0,0)
-CloseButton.BackgroundColor3 = Color3.fromRGB(30,30,30)
 CloseButton.Font = Enum.Font.GothamBold
+CloseButton.TextColor3 = Color3.fromRGB(255, 100, 100)
+CloseButton.BackgroundColor3 = Color3.fromRGB(35,35,35)
 CloseButton.TextScaled = true
-CloseButton.Parent = MainFrame
-
-local closeCorner = Instance.new("UICorner")
-closeCorner.CornerRadius = UDim.new(0.3,0)
-closeCorner.Parent = CloseButton
-
--- Close GUI
+local closeCorner = Instance.new("UICorner", CloseButton)
+closeCorner.CornerRadius = UDim.new(0.3, 0)
 CloseButton.MouseButton1Click:Connect(function()
-    MainFrame:Destroy()
+    ScreenGui:Destroy()
 end)
 
--- Function to create buttons
-local function createButton(name, position, parent)
-    local button = Instance.new("TextButton")
-    button.Size = UDim2.new(0.8,0,0,40)
-    button.Position = position
-    button.Text = name
-    button.BackgroundColor3 = Color3.fromRGB(30,30,30)
-    button.TextColor3 = Color3.fromRGB(0,255,0)
-    button.Font = Enum.Font.GothamBold
-    button.TextScaled = true
-    button.Parent = parent
-
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0.2,0)
-    corner.Parent = button
-    return button
+-- helper to create styled Buttons
+local function makeButton(text, posY)
+    local b = Instance.new("TextButton", MainFrame)
+    b.Size = UDim2.new(0.86, 0, 0, 38)
+    b.Position = UDim2.new(0.07, 0, posY, 0)
+    b.BackgroundColor3 = Color3.fromRGB(30,30,30)
+    b.TextColor3 = Color3.fromRGB(0,255,0)
+    b.Font = Enum.Font.GothamBold
+    b.Text = text
+    b.TextScaled = true
+    local c = Instance.new("UICorner", b); c.CornerRadius = UDim.new(0.12,0)
+    return b
 end
 
--- Buttons
-local ToolButton = createButton("Give All Tools", UDim2.new(0.1,0,0.25,0), MainFrame)
-local PassButton = createButton("Give GamePasses", UDim2.new(0.1,0,0.65,0), MainFrame)
+local ToolButton = makeButton("Give All Tools", 0.25)
+local PassButton = makeButton("Give GamePasses (VIP, 2x Geld, Admin)", 0.6)
 
--- Tool Giving Logic (sichtbar für andere)
-ToolButton.MouseButton1Click:Connect(function()
-    for _, tool in pairs(ReplicatedStorage:GetDescendants()) do
-        if tool:IsA("Tool") then
-            local clone = tool:Clone()
-            clone.Parent = LocalPlayer.Backpack
-            clone.Parent = LocalPlayer.Character -- direkt ausrüsten, andere sehen es
+-- ---------- Utility functions ----------
+local function safeFindAsset(names)
+    -- versucht in ReplicatedStorage nach einem Accessory/Tool mit einem der Namen zu suchen
+    for _, nm in ipairs(names) do
+        local obj = ReplicatedStorage:FindFirstChild(nm)
+        if obj then
+            return obj
         end
     end
+    return nil
+end
+
+local function equipToolToCharacter(tool)
+    -- stellt sicher, dass das Tool ins Backpack kommt und dann equippt wird
+    if not tool then return end
+    local backpack = LocalPlayer:FindFirstChild("Backpack")
+    if not backpack then
+        backpack = Instance.new("Folder")
+        backpack.Name = "Backpack"
+        backpack.Parent = LocalPlayer
+    end
+    -- parent to backpack first
+    tool.Parent = backpack
+
+    -- try to equip via Humanoid
+    local character = LocalPlayer.Character
+    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        humanoid:EquipTool(tool)
+    else
+        -- fallback: wait for character and equip
+        LocalPlayer.CharacterAdded:Wait()
+        local hum = LocalPlayer.Character:WaitForChild("Humanoid")
+        hum:EquipTool(tool)
+    end
+end
+
+local function makeVisibleTool(name)
+    -- Erstellt ein einfaches Tool mit Handle + BillboardGui zur Repräsentation (sichtbar wenn equippt)
+    local tool = Instance.new("Tool")
+    tool.Name = name or "SimTool"
+
+    local handle = Instance.new("Part")
+    handle.Name = "Handle"
+    handle.Size = Vector3.new(1,1,1)
+    handle.CanCollide = false
+    handle.Transparency = 0.3
+    handle.Parent = tool
+
+    -- Billboard (sichtbar für andere, wenn Tool equippt)
+    local bg = Instance.new("BillboardGui", handle)
+    bg.Size = UDim2.new(0,120,0,40)
+    bg.AlwaysOnTop = true
+    bg.StudsOffset = Vector3.new(0, 1.8, 0)
+
+    local label = Instance.new("TextLabel", bg)
+    label.Size = UDim2.new(1,0,1,0)
+    label.BackgroundTransparency = 0.6
+    label.BackgroundColor3 = Color3.fromRGB(20,20,20)
+    label.TextColor3 = Color3.fromRGB(0,255,0)
+    label.Text = name
+    label.Font = Enum.Font.Gotham
+    label.TextScaled = true
+
+    return tool
+end
+
+-- ---------- Give All Tools ----------
+ToolButton.MouseButton1Click:Connect(function()
+    -- klone alle Tools aus ReplicatedStorage
+    for _, item in pairs(ReplicatedStorage:GetDescendants()) do
+        if item:IsA("Tool") then
+            local ok, clone = pcall(function() return item:Clone() end)
+            if ok and clone then
+                -- setze kurzzeitig Name um Konflikte zu vermeiden
+                clone.Parent = LocalPlayer:FindFirstChild("Backpack") or LocalPlayer
+                -- sicher equippen
+                spawn(function()
+                    wait(0.15)
+                    xpcall(function()
+                        equipToolToCharacter(clone)
+                    end, function() end)
+                end)
+            end
+        end
+    end
+
+    -- kleine Info
+    print("Give All Tools ausgeführt.")
 end)
 
--- Game-Pass Logic
+-- ---------- Give / Simulate GamePasses ----------
 PassButton.MouseButton1Click:Connect(function()
-    local passes = {"VIP", "2x Geld", "Admin-Befehle"}
-    
-    for _, passName in pairs(passes) do
-        local passRemote = ReplicatedStorage:FindFirstChild(passName)
-        if passRemote and passRemote:IsA("RemoteEvent") then
-            passRemote:FireServer()
-            print("GamePass angefordert: "..passName)
+    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+
+    for passName, candidateNames in pairs(GAMEPASS_MAP) do
+        local found = safeFindAsset(candidateNames)
+
+        if found then
+            -- wenn ein Tool oder Accessory mit dem Namen existiert, klonen und equippen
+            local clone = found:Clone()
+            if clone:IsA("Accessory") then
+                -- Accessory: kann per Humanoid:AddAccessory (serverseitig ideal), clientseitig versuchen, Parent=Character
+                clone.Parent = character
+                print("Accessory", clone.Name, "an Character gehängt (pass:", passName, ")")
+            elseif clone:IsA("Tool") then
+                equipToolToCharacter(clone)
+                print("Tool", clone.Name, "gegeben (pass:", passName, ")")
+            else
+                -- falls sonstiges, parent to character als Fallback
+                clone.Parent = character
+            end
         else
-            print("Remote für GamePass nicht gefunden: "..passName)
+            -- kein vorgefertigtes Asset im ReplicatedStorage: wir erzeugen ein simples Tool (sichtbar wenn equippt)
+            local simTool = makeVisibleTool(passName .. " (Sim)")
+            equipToolToCharacter(simTool)
+            print("Simuliertes GamePass-Tool erzeugt für:", passName)
         end
-    end
-    
-    -- Optional: Attribute setzen, falls Spiel GamePasses intern trackt
-    for _, passName in pairs(passes) do
+
+        -- Optional: Versuchen, den Server zu bitten, ein serverseitiges Asset zu geben (falls Remote existiert)
+        local remote = ReplicatedStorage:FindFirstChild(SERVER_ASSET_REQUEST_REMOTE_NAME)
+        if remote and remote:IsA("RemoteEvent") then
+            pcall(function()
+                remote:FireServer(passName) -- Server müsste das implementieren
+            end)
+        end
+
+        -- Optional: setze Attribute lokal (nur zur internen Nutzung)
         LocalPlayer:SetAttribute(passName, true)
+    end
+
+    -- Feedback
+    print("GamePass-Simulation ausgeführt (VIP / 2x Geld / Admin).")
+end)
+
+-- ---------- Hinweise für dich (kurz) ----------
+-- 1) ECHTE Roblox GamePasses kann man nicht clientseitig geben. Dieses Script simuliert Effekte.
+-- 2) Wenn du möchtest, dass die GamePass-Objekte wirklich serverseitig und sauber repliziert werden:
+--    - Lege im ReplicatedStorage Accessory- oder Tool-Assets an mit den Namen:
+--        VIP_Crown, VIPTool, DoubleMoneyBadge, 2xMoneyTool, AdminBadge, AdminTool
+--    - Oder implementiere auf dem Server ein RemoteEvent (SERVER_ASSET_REQUEST_REMOTE_NAME) das
+--      bei FireServer(passName) die entsprechenden Assets per Server script an den Spieler gibt.
+-- 3) Tools die in dein Character Parent gesetzt werden, werden normalerweise für andere Spieler sichtbar,
+--    darum werden wir Tools/Accessories bevorzugt verwenden.
+
+-- optional: cleanup on character respawn (entfernt simulierte Attribute)
+LocalPlayer.CharacterAdded:Connect(function(char)
+    for k,_ in pairs(GAMEPASS_MAP) do
+        LocalPlayer:SetAttribute(k, nil)
     end
 end)
