@@ -1,59 +1,193 @@
--- ======= CONFIG =======
-local NPCs = workspace.NPCs:GetChildren() -- Alle NPCs im Spiel
-local SHOP_ITEMS = {
-    {Name = "Sword", Price = 100},
-    {Name = "Shield", Price = 150},
-    {Name = "Potion", Price = 50}
+-- Rtx Float v2 GUI
+-- Rectangle with circular ends, sleek green gradient outline, draggable
+-- Buttons: Float v1 + Player ESP
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+
+-- GUI Container
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "RtxFloatV2"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+-- Main Frame
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 240, 0, 170)
+MainFrame.Position = UDim2.new(0.35, 0, 0.1, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+MainFrame.BorderSizePixel = 0
+MainFrame.ClipsDescendants = true
+MainFrame.Parent = ScreenGui
+
+-- Circular ends
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0.2,0)
+UICorner.Parent = MainFrame
+
+-- Green gradient outline
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Thickness = 3
+UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+UIStroke.Parent = MainFrame
+
+local UIGradient = Instance.new("UIGradient")
+UIGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(0,255,0)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(0,180,0))
 }
-local CURRENCY = "Coins" -- Name der Spieler-Währung
+UIGradient.Rotation = 45
+UIGradient.Parent = UIStroke
 
--- ======= HELPER FUNCTIONS =======
--- Prüft, ob der Spieler genug Geld hat
-local function canAfford(player, amount)
-    local leaderstats = player:FindFirstChild("leaderstats")
-    if leaderstats and leaderstats:FindFirstChild(CURRENCY) then
-        return leaderstats[CURRENCY].Value >= amount
-    end
-    return false
+-- Title
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1,0,0,35)
+Title.BackgroundTransparency = 1
+Title.Text = "Rtx Float v2"
+Title.TextColor3 = Color3.fromRGB(0,255,0)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 22
+Title.Parent = MainFrame
+
+-- Function to style buttons
+local function styleButton(button)
+    button.BackgroundColor3 = Color3.fromRGB(30,30,30)
+    button.TextColor3 = Color3.fromRGB(0,255,0)
+    button.Font = Enum.Font.GothamBold
+    button.TextScaled = true
+    button.ClipsDescendants = true
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0.2,0)
+    corner.Parent = button
+
+    local outline = Instance.new("UIStroke")
+    outline.Thickness = 2
+    outline.Parent = button
+
+    local grad = Instance.new("UIGradient")
+    grad.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(0,255,0)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(0,180,0))
+    }
+    grad.Rotation = 45
+    grad.Parent = outline
 end
 
--- Zieht Geld vom Spieler ab
-local function deductMoney(player, amount)
-    local leaderstats = player:FindFirstChild("leaderstats")
-    if leaderstats and leaderstats:FindFirstChild(CURRENCY) then
-        leaderstats[CURRENCY].Value -= amount
-    end
-end
+-- Float Button
+local FloatButton = Instance.new("TextButton")
+FloatButton.Size = UDim2.new(0.8,0,0,40)
+FloatButton.Position = UDim2.new(0.1,0,0.35,0)
+FloatButton.Text = "Float v1"
+FloatButton.Parent = MainFrame
+styleButton(FloatButton)
 
--- Sendet eine Nachricht an den Spieler
-local function notifyPlayer(player, message)
-    player:SendNotification({
-        Title = "Shop",
-        Text = message,
-        Duration = 3
-    })
-end
+-- ESP Button
+local ESPButton = Instance.new("TextButton")
+ESPButton.Size = UDim2.new(0.8,0,0,40)
+ESPButton.Position = UDim2.new(0.1,0,0.65,0)
+ESPButton.Text = "Player ESP: OFF"
+ESPButton.Parent = MainFrame
+styleButton(ESPButton)
 
--- ======= SHOP LOGIK =======
-local function handlePurchase(player, item)
-    if canAfford(player, item.Price) then
-        deductMoney(player, item.Price)
-        -- Hier Item geben (z.B. ins Inventory)
-        notifyPlayer(player, "Du hast " .. item.Name .. " gekauft!")
-    else
-        notifyPlayer(player, "Du hast nicht genug Coins!")
-    end
-end
-
--- ======= NPC INTERAKTION =======
-for _, npc in pairs(NPCs) do
-    if npc:IsA("Model") and npc:FindFirstChild("ClickDetector") then
-        npc.ClickDetector.MouseClick:Connect(function(player)
-            -- Einfaches GUI-Dialog-System
-            for _, item in pairs(SHOP_ITEMS) do
-                -- Beispiel: Sofortkauf (du kannst hier GUI-Integration machen)
-                handlePurchase(player, item)
+-- Dragging
+local dragging, dragInput, dragStart, startPos
+MainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
             end
         end)
     end
+end)
+MainFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(
+            startPos.X.Scale, startPos.X.Offset + delta.X,
+            startPos.Y.Scale, startPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+-- Float Logic (slightly faster)
+local floatEnabled = false
+local floatConnection
+
+local function toggleFloat()
+    floatEnabled = not floatEnabled
+    if floatEnabled then
+        FloatButton.Text = "Float ON"
+        floatConnection = RunService.RenderStepped:Connect(function()
+            if Character and HumanoidRootPart then
+                local Camera = workspace.CurrentCamera
+                local moveDir = Camera.CFrame.LookVector
+                HumanoidRootPart.Velocity = moveDir * 26 + Vector3.new(0, 9, 0) -- faster float
+            end
+        end)
+    else
+        FloatButton.Text = "Float v1"
+        if floatConnection then floatConnection:Disconnect() end
+        HumanoidRootPart.Velocity = Vector3.zero
+    end
 end
+FloatButton.MouseButton1Click:Connect(toggleFloat)
+
+-- ESP Logic
+local espEnabled = false
+local espHighlights = {}
+
+local function addESP(player)
+    if player.Character and not espHighlights[player] then
+        local highlight = Instance.new("Highlight")
+        highlight.FillColor = Color3.fromRGB(0,255,0)
+        highlight.OutlineColor = Color3.fromRGB(0,255,0)
+        highlight.FillTransparency = 0.8
+        highlight.OutlineTransparency = 0
+        highlight.Adornee = player.Character
+        highlight.Parent = player.Character
+        espHighlights[player] = highlight
+    end
+end
+
+local function removeESP(player)
+    if espHighlights[player] then
+        espHighlights[player]:Destroy()
+        espHighlights[player] = nil
+    end
+end
+
+local function toggleESP()
+    espEnabled = not espEnabled
+    if espEnabled then
+        ESPButton.Text = "Player ESP: ON"
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then addESP(player) end
+        end
+        Players.PlayerAdded:Connect(function(player)
+            if espEnabled then addESP(player) end
+        end)
+        Players.PlayerRemoving:Connect(function(player)
+            removeESP(player)
+        end)
+    else
+        ESPButton.Text = "Player ESP: OFF"
+        for _, hl in pairs(espHighlights) do hl:Destroy() end
+        espHighlights = {}
+    end
+end
+ESPButton.MouseButton1Click:Connect(toggleESP)
