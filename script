@@ -1,4 +1,143 @@
--- ========== Start Events Button ==========
+-- LocalScript in StarterGui
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+-- ScreenGui
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- Hauptframe
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 250, 0, 400)
+MainFrame.Position = UDim2.new(0, 20, 0.5, -200)
+MainFrame.BackgroundColor3 = Color3.fromRGB(40,40,40)
+MainFrame.Parent = ScreenGui
+
+local corner = Instance.new("UICorner", MainFrame)
+corner.CornerRadius = UDim.new(0.05,0)
+
+-- Titel
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1,0,0,40)
+Title.BackgroundTransparency = 1
+Title.Text = "Admin Panel"
+Title.TextColor3 = Color3.fromRGB(220,220,220)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 24
+Title.Parent = MainFrame
+
+-- ScrollFrame für Buttons
+local Scroll = Instance.new("ScrollingFrame")
+Scroll.Size = UDim2.new(1,-10,1,-50)
+Scroll.Position = UDim2.new(0,5,0,45)
+Scroll.BackgroundTransparency = 1
+Scroll.ScrollBarThickness = 6
+Scroll.CanvasSize = UDim2.new(0,0,0,0)
+Scroll.Parent = MainFrame
+
+local Layout = Instance.new("UIListLayout", Scroll)
+Layout.SortOrder = Enum.SortOrder.LayoutOrder
+Layout.Padding = UDim.new(0,5)
+
+-- Automatisches Canvas-Resizing
+Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    Scroll.CanvasSize = UDim2.new(0,0,0, Layout.AbsoluteContentSize.Y + 10)
+end)
+
+-- Funktion: Button erstellen
+local function createButton(text, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1,-10,0,35)
+    btn.BackgroundColor3 = Color3.fromRGB(90,90,90)
+    btn.TextColor3 = Color3.fromRGB(220,220,220)
+    btn.Font = Enum.Font.Gotham
+    btn.TextScaled = true
+    btn.Text = text
+    btn.Parent = Scroll
+
+    local bcorner = Instance.new("UICorner", btn)
+    bcorner.CornerRadius = UDim.new(0.1,0)
+
+    btn.MouseButton1Click:Connect(callback)
+    return btn
+end
+
+-- Button: RemoteEvents nur im Output listen
+createButton("List RemoteEvents (print)", function()
+    local function gather(parent)
+        local out = {}
+        for _, v in pairs(parent:GetDescendants()) do
+            if v:IsA("RemoteEvent") then
+                table.insert(out, v)
+            end
+        end
+        return out
+    end
+
+    local remotes = {}
+    for _, p in pairs({game:GetService("ReplicatedStorage"), workspace}) do
+        for _, r in pairs(gather(p)) do
+            table.insert(remotes, r)
+        end
+    end
+
+    print("Gefundene RemoteEvents:")
+    for i, r in ipairs(remotes) do
+        print(i, r:GetFullName())
+    end
+end)
+
+-- Button: GUI Liste von RemoteEvents (anklickbar -> FireServer)
+createButton("List RemoteEvents (GUI)", function()
+    -- Alte Buttons (außer Standard) löschen
+    for _, child in ipairs(Scroll:GetChildren()) do
+        if child:IsA("TextButton") and child.Text:find("RemoteEvent:") then
+            child:Destroy()
+        end
+    end
+
+    local function gather(parent)
+        local out = {}
+        for _, v in pairs(parent:GetDescendants()) do
+            if v:IsA("RemoteEvent") then
+                table.insert(out, v)
+            end
+        end
+        return out
+    end
+
+    local remotes = {}
+    for _, p in pairs({game:GetService("ReplicatedStorage"), workspace}) do
+        for _, r in pairs(gather(p)) do
+            table.insert(remotes, r)
+        end
+    end
+
+    print("Gefundene RemoteEvents: "..#remotes)
+
+    for i, r in ipairs(remotes) do
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1,-10,0,30)
+        btn.BackgroundColor3 = Color3.fromRGB(90,90,90)
+        btn.TextColor3 = Color3.fromRGB(220,220,220)
+        btn.Font = Enum.Font.Gotham
+        btn.TextScaled = true
+        btn.Text = "RemoteEvent: "..r.Name
+        btn.Parent = Scroll
+
+        local corner = Instance.new("UICorner", btn)
+        corner.CornerRadius = UDim.new(0.1,0)
+
+        btn.MouseButton1Click:Connect(function()
+            warn("FireServer auf "..r:GetFullName())
+            pcall(function()
+                r:FireServer()
+            end)
+        end)
+    end
+end)
+
+-- Button: Event Starter Fenster
 createButton("Start Events", function()
     -- Neues GUI Fenster
     local EventFrame = Instance.new("Frame")
@@ -86,7 +225,7 @@ createButton("Start Events", function()
         btn.MouseButton1Click:Connect(function()
             warn("Starte Event -> "..r:GetFullName())
             pcall(function()
-                r:FireServer() -- ohne Argumente
+                r:FireServer()
             end)
         end)
     end
