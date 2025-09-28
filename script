@@ -1,69 +1,185 @@
--- LocalScript in StarterGui
+-- Funktionen GUI (öffnet sofort beim Start)
+-- LocalScript (in StarterPlayerScripts)
+
 local Players = game:GetService("Players")
-local player = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
 
--- ScreenGui
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- ---------- GUI erzeugen ----------
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Parent = player:WaitForChild("PlayerGui")
+ScreenGui.Name = "FunctionGUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = PlayerGui
+ScreenGui.Enabled = true
 
--- Hauptframe
+-- Main Frame
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 250, 0, 400)
-MainFrame.Position = UDim2.new(0, 20, 0.5, -200)
-MainFrame.BackgroundColor3 = Color3.fromRGB(40,40,40)
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 300, 0, 400)
+MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+MainFrame.BackgroundColor3 = Color3.fromRGB(50,50,50)
+MainFrame.BorderSizePixel = 0
 MainFrame.Parent = ScreenGui
 
-local corner = Instance.new("UICorner", MainFrame)
-corner.CornerRadius = UDim.new(0.05,0)
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0.05,0)
+UICorner.Parent = MainFrame
 
 -- Titel
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1,0,0,40)
+Title.Size = UDim2.new(1,0,0,30)
 Title.BackgroundTransparency = 1
-Title.Text = "Admin Panel"
-Title.TextColor3 = Color3.fromRGB(220,220,220)
+Title.Text = "Funktionen"
+Title.TextColor3 = Color3.fromRGB(200,200,200)
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 24
+Title.TextSize = 22
 Title.Parent = MainFrame
 
--- ScrollFrame für Buttons
+-- Schließen Button
+local CloseButton = Instance.new("TextButton")
+CloseButton.Size = UDim2.new(0,30,0,30)
+CloseButton.Position = UDim2.new(1,-36,0,2)
+CloseButton.Text = "X"
+CloseButton.TextColor3 = Color3.fromRGB(255,100,100)
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.TextScaled = true
+CloseButton.BackgroundColor3 = Color3.fromRGB(70,70,70)
+CloseButton.Parent = MainFrame
+local cbCorner = Instance.new("UICorner", CloseButton)
+cbCorner.CornerRadius = UDim.new(0.3,0)
+
+CloseButton.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+-- Scroll Frame
 local Scroll = Instance.new("ScrollingFrame")
-Scroll.Size = UDim2.new(1,-10,1,-50)
-Scroll.Position = UDim2.new(0,5,0,45)
+Scroll.Size = UDim2.new(1,-10,1,-40)
+Scroll.Position = UDim2.new(0,5,0,35)
 Scroll.BackgroundTransparency = 1
-Scroll.ScrollBarThickness = 6
 Scroll.CanvasSize = UDim2.new(0,0,0,0)
+Scroll.ScrollBarThickness = 6
 Scroll.Parent = MainFrame
 
 local Layout = Instance.new("UIListLayout", Scroll)
 Layout.SortOrder = Enum.SortOrder.LayoutOrder
 Layout.Padding = UDim.new(0,5)
 
--- Automatisches Canvas-Resizing
-Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    Scroll.CanvasSize = UDim2.new(0,0,0, Layout.AbsoluteContentSize.Y + 10)
-end)
-
--- Funktion: Button erstellen
-local function createButton(text, callback)
+-- Helper: Button erstellen
+local function createButton(name, func)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1,-10,0,35)
-    btn.BackgroundColor3 = Color3.fromRGB(90,90,90)
-    btn.TextColor3 = Color3.fromRGB(220,220,220)
-    btn.Font = Enum.Font.Gotham
+    btn.Size = UDim2.new(1,-10,0,40)
+    btn.BackgroundColor3 = Color3.fromRGB(70,70,70)
+    btn.TextColor3 = Color3.fromRGB(200,200,200)
+    btn.Font = Enum.Font.GothamBold
     btn.TextScaled = true
-    btn.Text = text
+    btn.Text = name
     btn.Parent = Scroll
+    local corner = Instance.new("UICorner", btn)
+    corner.CornerRadius = UDim.new(0.1,0)
 
-    local bcorner = Instance.new("UICorner", btn)
-    bcorner.CornerRadius = UDim.new(0.1,0)
-
-    btn.MouseButton1Click:Connect(callback)
+    btn.MouseButton1Click:Connect(function()
+        local ok, err = pcall(func)
+        if not ok then
+            warn("Fehler in Funktion '"..tostring(name).."': "..tostring(err))
+        end
+    end)
     return btn
 end
 
--- Funktion: Alle RemoteEvents einsammeln
-local function getAllRemoteEvents()
+-- Float v1
+local floatEnabled = false
+local floatConnection
+createButton("Float v1 (Toggle)", function()
+    floatEnabled = not floatEnabled
+    if floatEnabled then
+        local char = LocalPlayer.Character
+        if not char then return end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        floatConnection = game:GetService("RunService").RenderStepped:Connect(function()
+            if char and hrp then
+                local cam = workspace.CurrentCamera
+                local dir = cam and cam.CFrame.LookVector or Vector3.new(0,0,-1)
+                hrp.Velocity = dir * 20 + Vector3.new(0, 10, 0)
+            end
+        end)
+    else
+        if floatConnection then
+            floatConnection:Disconnect()
+            floatConnection = nil
+        end
+    end
+end)
+
+-- Player ESP
+local espEnabled = false
+local espTable = {}
+createButton("Player ESP (Toggle)", function()
+    espEnabled = not espEnabled
+    if espEnabled then
+        for _, pl in pairs(Players:GetPlayers()) do
+            if pl ~= LocalPlayer and pl.Character and not espTable[pl] then
+                local hig = Instance.new("Highlight")
+                hig.Name = "ESP_Highlight"
+                hig.FillColor = Color3.fromRGB(150,150,255)
+                hig.OutlineColor = Color3.fromRGB(0,0,0)
+                hig.FillTransparency = 0.7
+                hig.OutlineTransparency = 0.5
+                hig.Adornee = pl.Character
+                hig.Parent = pl.Character
+                espTable[pl] = hig
+            end
+        end
+        Players.PlayerAdded:Connect(function(pl)
+            if espEnabled and pl ~= LocalPlayer then
+                pl.CharacterAdded:Connect(function(char)
+                    task.wait(0.1)
+                    if espEnabled and char and not espTable[pl] then
+                        local hig = Instance.new("Highlight")
+                        hig.Name = "ESP_Highlight"
+                        hig.FillColor = Color3.fromRGB(150,150,255)
+                        hig.OutlineColor = Color3.fromRGB(0,0,0)
+                        hig.FillTransparency = 0.7
+                        hig.OutlineTransparency = 0.5
+                        hig.Adornee = char
+                        hig.Parent = char
+                        espTable[pl] = hig
+                    end
+                end)
+            end
+        end)
+    else
+        for pl, h in pairs(espTable) do
+            if h and h.Parent then pcall(function() h:Destroy() end) end
+            espTable[pl] = nil
+        end
+    end
+end)
+
+-- Teleport to Base
+createButton("Teleport to Base (try)", function()
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local hrp = char:FindFirstChild("HumanoidRootPart") or char:WaitForChild("HumanoidRootPart")
+    local found
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and obj.Name:lower():find("base") then
+            found = obj
+            break
+        end
+    end
+    if found then
+        hrp.CFrame = found.CFrame + Vector3.new(0, 5, 0)
+    else
+        warn("Keine Base gefunden.")
+    end
+end)
+
+-- Liste RemoteEvents
+createButton("List RemoteEvents (print)", function()
     local function gather(parent)
         local out = {}
         for _, v in pairs(parent:GetDescendants()) do
@@ -73,151 +189,51 @@ local function getAllRemoteEvents()
         end
         return out
     end
-
     local remotes = {}
     for _, p in pairs({game:GetService("ReplicatedStorage"), workspace}) do
         for _, r in pairs(gather(p)) do
             table.insert(remotes, r)
         end
     end
-    return remotes
-end
-
--- Button: RemoteEvents nur im Output listen
-createButton("List RemoteEvents (print)", function()
-    local remotes = getAllRemoteEvents()
-    print("Gefundene RemoteEvents: "..#remotes)
+    print("Gefundene RemoteEvents:")
     for i, r in ipairs(remotes) do
         print(i, r:GetFullName())
     end
 end)
 
--- Button: GUI Liste von RemoteEvents (anklickbar -> FireServer)
-createButton("List RemoteEvents (GUI)", function()
-    -- Alte Buttons (außer Standard) löschen
-    for _, child in ipairs(Scroll:GetChildren()) do
-        if child:IsA("TextButton") and child.Text:find("RemoteEvent:") then
-            child:Destroy()
-        end
-    end
+-- Canvas Size Update
+Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    Scroll.CanvasSize = UDim2.new(0,0,0, Layout.AbsoluteContentSize.Y + 10)
+end)
 
-    local remotes = getAllRemoteEvents()
-    print("Gefundene RemoteEvents: "..#remotes)
-
-    for i, r in ipairs(remotes) do
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(1,-10,0,30)
-        btn.BackgroundColor3 = Color3.fromRGB(90,90,90)
-        btn.TextColor3 = Color3.fromRGB(220,220,220)
-        btn.Font = Enum.Font.Gotham
-        btn.TextScaled = true
-        btn.Text = "RemoteEvent: "..r.Name
-        btn.Parent = Scroll
-
-        local corner = Instance.new("UICorner", btn)
-        corner.CornerRadius = UDim.new(0.1,0)
-
-        btn.MouseButton1Click:Connect(function()
-            if r and r:IsA("RemoteEvent") then
-                warn("FireServer auf "..r:GetFullName())
-                local ok, err = pcall(function()
-                    r:FireServer()
-                end)
-                if not ok then
-                    warn("Fehler beim FireServer: "..tostring(err))
-                end
-            else
-                warn("Ungültiges RemoteEvent.")
+-- Draggable
+local dragging, dragInput, dragStart, startPos
+MainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
             end
         end)
     end
 end)
-
--- Button: Event Starter Fenster
-createButton("Start Events", function()
-    -- Neues GUI Fenster
-    local EventFrame = Instance.new("Frame")
-    EventFrame.Size = UDim2.new(0, 350, 0, 450)
-    EventFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-    EventFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-    EventFrame.BackgroundColor3 = Color3.fromRGB(40,40,40)
-    EventFrame.Parent = ScreenGui
-
-    local corner = Instance.new("UICorner", EventFrame)
-    corner.CornerRadius = UDim.new(0.05,0)
-
-    -- Titel
-    local EventTitle = Instance.new("TextLabel")
-    EventTitle.Size = UDim2.new(1,0,0,40)
-    EventTitle.BackgroundTransparency = 1
-    EventTitle.Text = "Event Starter"
-    EventTitle.TextColor3 = Color3.fromRGB(220,220,220)
-    EventTitle.Font = Enum.Font.GothamBold
-    EventTitle.TextSize = 24
-    EventTitle.Parent = EventFrame
-
-    -- Schließen
-    local Close = Instance.new("TextButton")
-    Close.Size = UDim2.new(0,40,0,30)
-    Close.Position = UDim2.new(1,-45,0,5)
-    Close.Text = "X"
-    Close.Font = Enum.Font.GothamBold
-    Close.TextColor3 = Color3.fromRGB(255,100,100)
-    Close.BackgroundColor3 = Color3.fromRGB(70,70,70)
-    Close.Parent = EventFrame
-    local cc = Instance.new("UICorner", Close)
-    cc.CornerRadius = UDim.new(0.3,0)
-
-    Close.MouseButton1Click:Connect(function()
-        EventFrame:Destroy()
-    end)
-
-    -- Scroll für Events
-    local ScrollEvents = Instance.new("ScrollingFrame")
-    ScrollEvents.Size = UDim2.new(1,-10,1,-50)
-    ScrollEvents.Position = UDim2.new(0,5,0,45)
-    ScrollEvents.BackgroundTransparency = 1
-    ScrollEvents.ScrollBarThickness = 6
-    ScrollEvents.CanvasSize = UDim2.new(0,0,0,0)
-    ScrollEvents.Parent = EventFrame
-
-    local LayoutEvents = Instance.new("UIListLayout", ScrollEvents)
-    LayoutEvents.SortOrder = Enum.SortOrder.LayoutOrder
-    LayoutEvents.Padding = UDim.new(0,5)
-
-    local remotes = getAllRemoteEvents()
-    print("Events für Starter GUI gefunden: "..#remotes)
-
-    for _, r in ipairs(remotes) do
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(1,-10,0,35)
-        btn.BackgroundColor3 = Color3.fromRGB(90,90,90)
-        btn.TextColor3 = Color3.fromRGB(220,220,220)
-        btn.Font = Enum.Font.Gotham
-        btn.TextScaled = true
-        btn.Text = "Event: "..r.Name
-        btn.Parent = ScrollEvents
-
-        local bcorner = Instance.new("UICorner", btn)
-        bcorner.CornerRadius = UDim.new(0.1,0)
-
-        btn.MouseButton1Click:Connect(function()
-            if r and r:IsA("RemoteEvent") then
-                warn("Starte Event -> "..r:GetFullName())
-                local ok, err = pcall(function()
-                    r:FireServer()
-                end)
-                if not ok then
-                    warn("Fehler beim FireServer: "..tostring(err))
-                end
-            else
-                warn("Ungültiges RemoteEvent.")
-            end
-        end)
+MainFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then
+        dragInput = input
     end
-
-    -- Canvas Auto-Size
-    LayoutEvents:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        ScrollEvents.CanvasSize = UDim2.new(0,0,0, LayoutEvents.AbsoluteContentSize.Y + 10)
-    end)
 end)
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(
+            startPos.X.Scale, startPos.X.Offset + delta.X,
+            startPos.Y.Scale, startPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+-- Fokus optional
+UserInputService.ModalEnabled = true
