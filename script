@@ -4,34 +4,69 @@ local player = Players.LocalPlayer
 
 -- ScreenGui
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "AdminPanelGui"
+ScreenGui.Name = "EventStarterGui"
+ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = player:WaitForChild("PlayerGui")
 
 -- Hauptframe
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 250, 0, 400)
-MainFrame.Position = UDim2.new(0, 20, 0.5, -200)
-MainFrame.BackgroundColor3 = Color3.fromRGB(40,40,40)
+MainFrame.Size = UDim2.new(0, 400, 0, 500)
+MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true -- verschiebbar
 MainFrame.Parent = ScreenGui
 
 local corner = Instance.new("UICorner", MainFrame)
-corner.CornerRadius = UDim.new(0.05,0)
+corner.CornerRadius = UDim.new(0.03,0)
 
--- Titel
+-- Titelbar
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1,0,0,40)
+TitleBar.BackgroundColor3 = Color3.fromRGB(45,45,45)
+TitleBar.BorderSizePixel = 0
+TitleBar.Parent = MainFrame
+
+local TitleCorner = Instance.new("UICorner", TitleBar)
+TitleCorner.CornerRadius = UDim.new(0.03,0)
+
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1,0,0,40)
+Title.Size = UDim2.new(1,-40,1,0)
+Title.Position = UDim2.new(0,10,0,0)
 Title.BackgroundTransparency = 1
-Title.Text = "Admin Panel"
+Title.Text = "Event Starter"
 Title.TextColor3 = Color3.fromRGB(220,220,220)
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 24
-Title.Parent = MainFrame
+Title.TextSize = 22
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = TitleBar
 
--- ScrollFrame für Buttons
+-- Schließen Button
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0,40,1,0)
+CloseBtn.Position = UDim2.new(1,-40,0,0)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(200,50,50)
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.new(1,1,1)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 20
+CloseBtn.Parent = TitleBar
+
+local CloseCorner = Instance.new("UICorner", CloseBtn)
+CloseCorner.CornerRadius = UDim.new(0.2,0)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+-- ScrollFrame für Event Buttons
 local Scroll = Instance.new("ScrollingFrame")
-Scroll.Size = UDim2.new(1,-10,1,-50)
-Scroll.Position = UDim2.new(0,5,0,45)
+Scroll.Size = UDim2.new(1,-20,1,-60)
+Scroll.Position = UDim2.new(0,10,0,50)
 Scroll.BackgroundTransparency = 1
+Scroll.BorderSizePixel = 0
 Scroll.ScrollBarThickness = 6
 Scroll.CanvasSize = UDim2.new(0,0,0,0)
 Scroll.Parent = MainFrame
@@ -44,185 +79,45 @@ Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     Scroll.CanvasSize = UDim2.new(0,0,0, Layout.AbsoluteContentSize.Y + 10)
 end)
 
--- Funktion: Button erstellen
-local function createButton(text, callback)
+-- RemoteEvents einsammeln
+local function getAllRemoteEvents()
+    local events = {}
+    for _, v in pairs(game:GetDescendants()) do
+        if v:IsA("RemoteEvent") then
+            table.insert(events, v)
+        end
+    end
+    return events
+end
+
+-- Button erstellen
+local function createEventButton(event)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1,-10,0,35)
-    btn.BackgroundColor3 = Color3.fromRGB(90,90,90)
+    btn.Size = UDim2.new(1,-5,0,35)
+    btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
     btn.TextColor3 = Color3.fromRGB(220,220,220)
     btn.Font = Enum.Font.Gotham
-    btn.TextScaled = true
-    btn.Text = text
+    btn.TextSize = 16
+    btn.Text = event.Name
     btn.Parent = Scroll
 
     local bcorner = Instance.new("UICorner", btn)
     bcorner.CornerRadius = UDim.new(0.1,0)
 
-    btn.MouseButton1Click:Connect(callback)
-    return btn
+    btn.MouseButton1Click:Connect(function()
+        warn("Starte Event -> "..event:GetFullName())
+        local ok, err = pcall(function()
+            event:FireServer()
+        end)
+        if not ok then
+            warn("Fehler beim FireServer: "..tostring(err))
+        end
+    end)
 end
 
--- Funktion: Alle RemoteEvents einsammeln
-local function getAllRemoteEvents()
-    local function gather(parent)
-        local out = {}
-        for _, v in pairs(parent:GetDescendants()) do
-            if v:IsA("RemoteEvent") then
-                table.insert(out, v)
-            end
-        end
-        return out
-    end
-
-    local remotes = {}
-    for _, p in pairs({game:GetService("ReplicatedStorage"), workspace}) do
-        for _, r in pairs(gather(p)) do
-            table.insert(remotes, r)
-        end
-    end
-    return remotes
+-- Alle Events in GUI anzeigen
+local events = getAllRemoteEvents()
+warn("Gefundene RemoteEvents: "..#events)
+for _, ev in ipairs(events) do
+    createEventButton(ev)
 end
-
--- Button: RemoteEvents im Output listen
-createButton("List RemoteEvents (print)", function()
-    local remotes = getAllRemoteEvents()
-    print("Gefundene RemoteEvents: "..#remotes)
-    for i, r in ipairs(remotes) do
-        print(i, r:GetFullName())
-    end
-end)
-
--- Button: GUI Liste von RemoteEvents
-createButton("List RemoteEvents (GUI)", function()
-    for _, child in ipairs(Scroll:GetChildren()) do
-        if child:IsA("TextButton") and child.Text:find("RemoteEvent:") then
-            child:Destroy()
-        end
-    end
-
-    local remotes = getAllRemoteEvents()
-    print("Gefundene RemoteEvents: "..#remotes)
-
-    for _, r in ipairs(remotes) do
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(1,-10,0,30)
-        btn.BackgroundColor3 = Color3.fromRGB(90,90,90)
-        btn.TextColor3 = Color3.fromRGB(220,220,220)
-        btn.Font = Enum.Font.Gotham
-        btn.TextScaled = true
-        btn.Text = "RemoteEvent: "..r.Name
-        btn.Parent = Scroll
-
-        local corner = Instance.new("UICorner", btn)
-        corner.CornerRadius = UDim.new(0.1,0)
-
-        btn.MouseButton1Click:Connect(function()
-            warn("Starte Event -> "..r:GetFullName())
-            local ok, err = pcall(function()
-                r:FireServer()
-            end)
-            if not ok then
-                warn("Fehler beim FireServer: "..tostring(err))
-            end
-        end)
-    end
-end)
-
--- Button: Event Starter Fenster (Einzelklick)
-createButton("Start Events (GUI)", function()
-    local EventFrame = Instance.new("Frame")
-    EventFrame.Size = UDim2.new(0, 350, 0, 450)
-    EventFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-    EventFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-    EventFrame.BackgroundColor3 = Color3.fromRGB(40,40,40)
-    EventFrame.Parent = ScreenGui
-
-    local corner = Instance.new("UICorner", EventFrame)
-    corner.CornerRadius = UDim.new(0.05,0)
-
-    local EventTitle = Instance.new("TextLabel")
-    EventTitle.Size = UDim2.new(1,0,0,40)
-    EventTitle.BackgroundTransparency = 1
-    EventTitle.Text = "Event Starter"
-    EventTitle.TextColor3 = Color3.fromRGB(220,220,220)
-    EventTitle.Font = Enum.Font.GothamBold
-    EventTitle.TextSize = 24
-    EventTitle.Parent = EventFrame
-
-    local Close = Instance.new("TextButton")
-    Close.Size = UDim2.new(0,40,0,30)
-    Close.Position = UDim2.new(1,-45,0,5)
-    Close.Text = "X"
-    Close.Font = Enum.Font.GothamBold
-    Close.TextColor3 = Color3.fromRGB(255,100,100)
-    Close.BackgroundColor3 = Color3.fromRGB(70,70,70)
-    Close.Parent = EventFrame
-    local cc = Instance.new("UICorner", Close)
-    cc.CornerRadius = UDim.new(0.3,0)
-
-    Close.MouseButton1Click:Connect(function()
-        EventFrame:Destroy()
-    end)
-
-    local ScrollEvents = Instance.new("ScrollingFrame")
-    ScrollEvents.Size = UDim2.new(1,-10,1,-50)
-    ScrollEvents.Position = UDim2.new(0,5,0,45)
-    ScrollEvents.BackgroundTransparency = 1
-    ScrollEvents.ScrollBarThickness = 6
-    ScrollEvents.CanvasSize = UDim2.new(0,0,0,0)
-    ScrollEvents.Parent = EventFrame
-
-    local LayoutEvents = Instance.new("UIListLayout", ScrollEvents)
-    LayoutEvents.SortOrder = Enum.SortOrder.LayoutOrder
-    LayoutEvents.Padding = UDim.new(0,5)
-
-    local remotes = getAllRemoteEvents()
-    print("Events für Starter GUI gefunden: "..#remotes)
-
-    for _, r in ipairs(remotes) do
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(1,-10,0,35)
-        btn.BackgroundColor3 = Color3.fromRGB(90,90,90)
-        btn.TextColor3 = Color3.fromRGB(220,220,220)
-        btn.Font = Enum.Font.Gotham
-        btn.TextScaled = true
-        btn.Text = "Event: "..r.Name
-        btn.Parent = ScrollEvents
-
-        local bcorner = Instance.new("UICorner", btn)
-        bcorner.CornerRadius = UDim.new(0.1,0)
-
-        btn.MouseButton1Click:Connect(function()
-            warn("Starte Event -> "..r:GetFullName())
-            local ok, err = pcall(function()
-                r:FireServer()
-            end)
-            if not ok then
-                warn("Fehler beim FireServer: "..tostring(err))
-            end
-        end)
-    end
-
-    LayoutEvents:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        ScrollEvents.CanvasSize = UDim2.new(0,0,0, LayoutEvents.AbsoluteContentSize.Y + 10)
-    end)
-end)
-
--- NEU: Button -> Alle Events automatisch starten
-createButton("Starte ALLE Events", function()
-    local remotes = getAllRemoteEvents()
-    warn("Starte ALLE Events ("..#remotes..") ...")
-    for _, r in ipairs(remotes) do
-        if r:IsA("RemoteEvent") then
-            local ok, err = pcall(function()
-                r:FireServer()
-            end)
-            if ok then
-                warn("✔ Event gestartet: "..r:GetFullName())
-            else
-                warn("⚠ Fehler bei "..r:GetFullName()..": "..tostring(err))
-            end
-            task.wait(0.1) -- kleine Pause, um Spam zu vermeiden
-        end
-    end
-end)
