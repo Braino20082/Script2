@@ -1,8 +1,6 @@
--- 📌 Tools GUI (funktioniert ohne Fehler)
+-- 📌 Einfaches GUI-Beispiel (sichtbar beim Spielstart)
 local player = game.Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
-local replicatedStorage = game:GetService("ReplicatedStorage")
-local toolsFolder = replicatedStorage:WaitForChild("ToolsFolder")
 
 -- ScreenGui erstellen
 local screenGui = Instance.new("ScreenGui")
@@ -10,43 +8,44 @@ screenGui.Name = "ToolsGui"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = playerGui
 
--- Hauptframe
+-- Hauptfenster
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 250, 0, 150)
-mainFrame.Position = UDim2.new(0.5, -125, 0.5, -75)
+mainFrame.Size = UDim2.new(0, 300, 0, 180)
+mainFrame.Position = UDim2.new(0.5, -150, 0.5, -90)
 mainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 mainFrame.BorderSizePixel = 0
+mainFrame.Visible = true
 mainFrame.Parent = screenGui
 
 -- Titel
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 30)
+title.Size = UDim2.new(1, 0, 0, 40)
 title.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-title.Text = "Tools Menü"
+title.Text = "📦 Tools Menü"
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.Font = Enum.Font.GothamBold
-title.TextSize = 20
+title.TextSize = 24
 title.Parent = mainFrame
 
 -- ❌ Schließen-Button
 local closeButton = Instance.new("TextButton")
-closeButton.Size = UDim2.new(0, 30, 0, 30)
-closeButton.Position = UDim2.new(1, -30, 0, 0)
+closeButton.Size = UDim2.new(0, 40, 0, 40)
+closeButton.Position = UDim2.new(1, -40, 0, 0)
 closeButton.Text = "X"
 closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 closeButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 closeButton.Font = Enum.Font.GothamBold
-closeButton.TextSize = 18
+closeButton.TextSize = 20
 closeButton.Parent = mainFrame
 
 closeButton.MouseButton1Click:Connect(function()
-    screenGui.Enabled = false -- GUI ausblenden statt zerstören
+    mainFrame.Visible = false -- Fenster ausblenden
 end)
 
--- 📦 Tools erhalten Button
+-- 📦 Tools-Button (noch ohne Funktion)
 local getToolsButton = Instance.new("TextButton")
-getToolsButton.Size = UDim2.new(0.8, 0, 0, 50)
-getToolsButton.Position = UDim2.new(0.1, 0, 0.5, -25)
+getToolsButton.Size = UDim2.new(0.8, 0, 0, 60)
+getToolsButton.Position = UDim2.new(0.1, 0, 0.5, -30)
 getToolsButton.Text = "📦 Tools erhalten"
 getToolsButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 getToolsButton.BackgroundColor3 = Color3.fromRGB(70, 130, 180)
@@ -54,22 +53,6 @@ getToolsButton.Font = Enum.Font.GothamBold
 getToolsButton.TextSize = 22
 getToolsButton.Parent = mainFrame
 
--- 📤 Tools geben
 getToolsButton.MouseButton1Click:Connect(function()
-    local backpack = player:WaitForChild("Backpack")
-
-    for _, tool in pairs(toolsFolder:GetChildren()) do
-        if tool:IsA("Tool") then
-            local clone = tool:Clone()
-            clone.Parent = backpack
-        end
-    end
-
-    -- Erstes Tool automatisch ausrüsten
-    local char = player.Character or player.CharacterAdded:Wait()
-    local humanoid = char:WaitForChild("Humanoid")
-    local firstTool = backpack:FindFirstChildWhichIsA("Tool")
-    if firstTool then
-        humanoid:EquipTool(firstTool)
-    end
+    print("Button geklickt ✅ (Tools-Funktion kommt als nächstes!)")
 end)
