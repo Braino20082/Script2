@@ -1,5 +1,7 @@
 -- StarterPlayerScripts/BrainrotClient.lua
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 local PlayerGui = player:WaitForChild("PlayerGui")
 local Workspace = game:GetService("Workspace")
@@ -46,13 +48,13 @@ frame.InputChanged:Connect(function(input)
     end
 end)
 
-game:GetService("UserInputService").InputChanged:Connect(function(input)
+UserInputService.InputChanged:Connect(function(input)
     if input == dragInput and dragging then
         update(input)
     end
 end)
 
--- Icon
+-- Icon & Titel
 local icon = Instance.new("ImageLabel")
 icon.Size = UDim2.new(0.15, 0, 0.25, 0)
 icon.Position = UDim2.new(0.03, 0, 0.1, 0)
@@ -60,7 +62,6 @@ icon.BackgroundTransparency = 1
 icon.Image = "rbxassetid://12846818277"
 icon.Parent = frame
 
--- Titel
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(0.7, 0, 0.2, 0)
 title.Position = UDim2.new(0.2, 0, 0.1, 0)
@@ -153,28 +154,36 @@ local function getClosestBrainrot()
     return closest
 end
 
--- Deine Base Position
+-- Base Position
 local basePosition = Vector3.new(0, 10, 0) -- <- hier anpassen
 
--- Funktion um zu Base zu „fliegen“
-local function flyToBase()
+-- Smooth Fly Funktion
+local function flyTo(position, speed)
     local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-    if hrp then
-        hrp.CFrame = CFrame.new(basePosition + Vector3.new(0,5,0))
+    if not hrp then return end
+    speed = speed or 200 -- studs per second
+    local start = hrp.Position
+    local distance = (position - start).Magnitude
+    local time = distance / speed
+    local elapsed = 0
+    while elapsed < time do
+        RunService.RenderStepped:Wait()
+        elapsed = elapsed + RunService.RenderStepped:Wait()
+        local alpha = math.clamp(elapsed / time, 0, 1)
+        hrp.CFrame = CFrame.new(start:Lerp(position, alpha))
     end
 end
 
--- Funktion um Brainrot zu stehlen
+-- Stehlen Funktion
 local function steal(brainrot)
     if not brainrot or not brainrot:IsA("BasePart") then return end
     if debounce then return end
     debounce = true
+    setStatus("Fliege zu Brainrot...", Color3.fromRGB(255, 200, 50))
+    flyTo(brainrot.Position + Vector3.new(0,5,0))
     setStatus("Fliege zu Base...", Color3.fromRGB(255, 200, 50))
-    flyToBase()
-    wait(0.3)
-    setStatus("Stehle Brainrot!", Color3.fromRGB(255, 200, 50))
-    wait(0.3)
-    setStatus("Fertig!", Color3.fromRGB(50, 255, 50))
+    flyTo(basePosition + Vector3.new(0,5,0))
+    setStatus("Stehle Brainrot!", Color3.fromRGB(50, 255, 50))
     wait(0.5)
     setStatus("Bereit", Color3.fromRGB(200, 200, 255))
     debounce = false
@@ -195,7 +204,7 @@ spawn(function()
     end
 end)
 
--- Brainrots überwachen für manuelles Stehlen
+-- Brainrot überwachen für manuelles Stehlen
 local function monitorBrainrot(brainrot)
     if not brainrot:IsA("BasePart") then return end
     brainrot.Touched:Connect(function(hit)
