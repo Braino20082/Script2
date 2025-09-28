@@ -1,228 +1,343 @@
--- LocalScript in StarterGui
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
+-- Roblox Tool Giver GUI Script
+-- Dieses Script erstellt eine schöne GUI zum Spawnen von Tools
 
--- ScreenGui
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "AdminPanelGui"
-ScreenGui.Parent = player:WaitForChild("PlayerGui")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- GUI Erstellung
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "ToolGiverGUI"
+screenGui.Parent = playerGui
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 -- Hauptframe
-local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 250, 0, 400)
-MainFrame.Position = UDim2.new(0, 20, 0.5, -200)
-MainFrame.BackgroundColor3 = Color3.fromRGB(40,40,40)
-MainFrame.Parent = ScreenGui
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 400, 0, 500)
+mainFrame.Position = UDim2.new(0.5, -200, 0.5, -250)
+mainFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+mainFrame.BorderSizePixel = 0
+mainFrame.Parent = screenGui
 
-local corner = Instance.new("UICorner", MainFrame)
-corner.CornerRadius = UDim.new(0.05,0)
+-- Abgerundete Ecken für den Hauptframe
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 15)
+mainCorner.Parent = mainFrame
+
+-- Schatten-Effekt
+local shadow = Instance.new("Frame")
+shadow.Name = "Shadow"
+shadow.Size = UDim2.new(1, 6, 1, 6)
+shadow.Position = UDim2.new(0, -3, 0, 3)
+shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+shadow.BackgroundTransparency = 0.7
+shadow.ZIndex = mainFrame.ZIndex - 1
+shadow.Parent = mainFrame
+
+local shadowCorner = Instance.new("UICorner")
+shadowCorner.CornerRadius = UDim.new(0, 15)
+shadowCorner.Parent = shadow
 
 -- Titel
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1,0,0,40)
-Title.BackgroundTransparency = 1
-Title.Text = "Admin Panel"
-Title.TextColor3 = Color3.fromRGB(220,220,220)
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 24
-Title.Parent = MainFrame
+local titleBar = Instance.new("Frame")
+titleBar.Name = "TitleBar"
+titleBar.Size = UDim2.new(1, 0, 0, 60)
+titleBar.Position = UDim2.new(0, 0, 0, 0)
+titleBar.BackgroundColor3 = Color3.fromRGB(65, 105, 255)
+titleBar.BorderSizePixel = 0
+titleBar.Parent = mainFrame
 
--- ScrollFrame für Buttons
-local Scroll = Instance.new("ScrollingFrame")
-Scroll.Size = UDim2.new(1,-10,1,-50)
-Scroll.Position = UDim2.new(0,5,0,45)
-Scroll.BackgroundTransparency = 1
-Scroll.ScrollBarThickness = 6
-Scroll.CanvasSize = UDim2.new(0,0,0,0)
-Scroll.Parent = MainFrame
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0, 15)
+titleCorner.Parent = titleBar
 
-local Layout = Instance.new("UIListLayout", Scroll)
-Layout.SortOrder = Enum.SortOrder.LayoutOrder
-Layout.Padding = UDim.new(0,5)
+-- Titel-Fix für untere Ecken
+local titleFix = Instance.new("Frame")
+titleFix.Size = UDim2.new(1, 0, 0, 15)
+titleFix.Position = UDim2.new(0, 0, 1, -15)
+titleFix.BackgroundColor3 = Color3.fromRGB(65, 105, 255)
+titleFix.BorderSizePixel = 0
+titleFix.Parent = titleBar
 
-Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    Scroll.CanvasSize = UDim2.new(0,0,0, Layout.AbsoluteContentSize.Y + 10)
-end)
+local titleText = Instance.new("TextLabel")
+titleText.Name = "TitleText"
+titleText.Size = UDim2.new(1, -20, 1, 0)
+titleText.Position = UDim2.new(0, 10, 0, 0)
+titleText.BackgroundTransparency = 1
+titleText.Text = "🔧 Tool Giver"
+titleText.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleText.TextScaled = true
+titleText.Font = Enum.Font.GothamBold
+titleText.Parent = titleBar
 
--- Funktion: Button erstellen
-local function createButton(text, callback)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1,-10,0,35)
-    btn.BackgroundColor3 = Color3.fromRGB(90,90,90)
-    btn.TextColor3 = Color3.fromRGB(220,220,220)
-    btn.Font = Enum.Font.Gotham
-    btn.TextScaled = true
-    btn.Text = text
-    btn.Parent = Scroll
+-- Schließen Button
+local closeButton = Instance.new("TextButton")
+closeButton.Name = "CloseButton"
+closeButton.Size = UDim2.new(0, 40, 0, 40)
+closeButton.Position = UDim2.new(1, -50, 0, 10)
+closeButton.BackgroundColor3 = Color3.fromRGB(255, 85, 85)
+closeButton.Text = "✕"
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.TextScaled = true
+closeButton.Font = Enum.Font.GothamBold
+closeButton.BorderSizePixel = 0
+closeButton.Parent = titleBar
 
-    local bcorner = Instance.new("UICorner", btn)
-    bcorner.CornerRadius = UDim.new(0.1,0)
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 8)
+closeCorner.Parent = closeButton
 
-    btn.MouseButton1Click:Connect(callback)
-    return btn
+-- Scroll Frame für Tools
+local scrollFrame = Instance.new("ScrollingFrame")
+scrollFrame.Name = "ToolScrollFrame"
+scrollFrame.Size = UDim2.new(1, -20, 1, -140)
+scrollFrame.Position = UDim2.new(0, 10, 0, 70)
+scrollFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+scrollFrame.BorderSizePixel = 0
+scrollFrame.ScrollBarThickness = 8
+scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(65, 105, 255)
+scrollFrame.Parent = mainFrame
+
+local scrollCorner = Instance.new("UICorner")
+scrollCorner.CornerRadius = UDim.new(0, 10)
+scrollCorner.Parent = scrollFrame
+
+-- Layout für Tools
+local listLayout = Instance.new("UIListLayout")
+listLayout.SortOrder = Enum.SortOrder.Name
+listLayout.Padding = UDim.new(0, 5)
+listLayout.Parent = scrollFrame
+
+local listPadding = Instance.new("UIPadding")
+listPadding.PaddingTop = UDim.new(0, 10)
+listPadding.PaddingBottom = UDim.new(0, 10)
+listPadding.PaddingLeft = UDim.new(0, 10)
+listPadding.PaddingRight = UDim.new(0, 10)
+listPadding.Parent = scrollFrame
+
+-- Such-Eingabefeld
+local searchFrame = Instance.new("Frame")
+searchFrame.Name = "SearchFrame"
+searchFrame.Size = UDim2.new(1, -20, 0, 40)
+searchFrame.Position = UDim2.new(0, 10, 1, -50)
+searchFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+searchFrame.BorderSizePixel = 0
+searchFrame.Parent = mainFrame
+
+local searchCorner = Instance.new("UICorner")
+searchCorner.CornerRadius = UDim.new(0, 8)
+searchCorner.Parent = searchFrame
+
+local searchBox = Instance.new("TextBox")
+searchBox.Name = "SearchBox"
+searchBox.Size = UDim2.new(1, -20, 1, 0)
+searchBox.Position = UDim2.new(0, 10, 0, 0)
+searchBox.BackgroundTransparency = 1
+searchBox.Text = ""
+searchBox.PlaceholderText = "🔍 Tool suchen..."
+searchBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+searchBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+searchBox.TextScaled = true
+searchBox.Font = Enum.Font.Gotham
+searchBox.Parent = searchFrame
+
+-- Tool Liste (Beispiel-Tools)
+local toolsList = {
+    "Sword", "Gun", "Bow", "Hammer", "Wrench", "Screwdriver",
+    "Paintball Gun", "Rocket Launcher", "Sniper", "Knife",
+    "Axe", "Pickaxe", "Shovel", "Flashlight", "Binoculars",
+    "Camera", "Megaphone", "Handcuffs", "Taser", "Shield"
+}
+
+-- Funktion zum Erstellen eines Tool-Buttons
+local function createToolButton(toolName)
+    local toolButton = Instance.new("TextButton")
+    toolButton.Name = toolName .. "Button"
+    toolButton.Size = UDim2.new(1, 0, 0, 45)
+    toolButton.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+    toolButton.Text = "🔧 " .. toolName
+    toolButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    toolButton.TextScaled = true
+    toolButton.Font = Enum.Font.Gotham
+    toolButton.BorderSizePixel = 0
+    toolButton.Parent = scrollFrame
+    
+    local buttonCorner = Instance.new("UICorner")
+    buttonCorner.CornerRadius = UDim.new(0, 8)
+    buttonCorner.Parent = toolButton
+    
+    -- Hover-Effekt
+    local originalColor = toolButton.BackgroundColor3
+    
+    toolButton.MouseEnter:Connect(function()
+        local tween = TweenService:Create(toolButton, 
+            TweenInfo.new(0.2, Enum.EasingStyle.Quad), 
+            {BackgroundColor3 = Color3.fromRGB(65, 105, 255)}
+        )
+        tween:Play()
+    end)
+    
+    toolButton.MouseLeave:Connect(function()
+        local tween = TweenService:Create(toolButton, 
+            TweenInfo.new(0.2, Enum.EasingStyle.Quad), 
+            {BackgroundColor3 = originalColor}
+        )
+        tween:Play()
+    end)
+    
+    -- Tool geben Funktion
+    toolButton.MouseButton1Click:Connect(function()
+        giveTool(toolName)
+        
+        -- Visuelles Feedback
+        local originalSize = toolButton.Size
+        local tween1 = TweenService:Create(toolButton, 
+            TweenInfo.new(0.1, Enum.EasingStyle.Quad), 
+            {Size = UDim2.new(1, -10, 0, 40)}
+        )
+        local tween2 = TweenService:Create(toolButton, 
+            TweenInfo.new(0.1, Enum.EasingStyle.Quad), 
+            {Size = originalSize}
+        )
+        
+        tween1:Play()
+        tween1.Completed:Connect(function()
+            tween2:Play()
+        end)
+    end)
+    
+    return toolButton
 end
 
--- Funktion: Alle RemoteEvents einsammeln
-local function getAllRemoteEvents()
-    local function gather(parent)
-        local out = {}
-        for _, v in pairs(parent:GetDescendants()) do
-            if v:IsA("RemoteEvent") then
-                table.insert(out, v)
-            end
-        end
-        return out
-    end
-
-    local remotes = {}
-    for _, p in pairs({game:GetService("ReplicatedStorage"), workspace}) do
-        for _, r in pairs(gather(p)) do
-            table.insert(remotes, r)
-        end
-    end
-    return remotes
+-- Alle Tool-Buttons erstellen
+local toolButtons = {}
+for _, toolName in pairs(toolsList) do
+    toolButtons[toolName] = createToolButton(toolName)
 end
 
--- Button: RemoteEvents im Output listen
-createButton("List RemoteEvents (print)", function()
-    local remotes = getAllRemoteEvents()
-    print("Gefundene RemoteEvents: "..#remotes)
-    for i, r in ipairs(remotes) do
-        print(i, r:GetFullName())
-    end
-end)
+-- Scroll-Frame Größe anpassen
+scrollFrame.CanvasSize = UDim2.new(0, 0, 0, #toolsList * 50 + 20)
 
--- Button: GUI Liste von RemoteEvents
-createButton("List RemoteEvents (GUI)", function()
-    for _, child in ipairs(Scroll:GetChildren()) do
-        if child:IsA("TextButton") and child.Text:find("RemoteEvent:") then
-            child:Destroy()
+-- Such-Funktion
+searchBox.Changed:Connect(function()
+    local searchText = searchBox.Text:lower()
+    local visibleCount = 0
+    
+    for toolName, button in pairs(toolButtons) do
+        if toolName:lower():find(searchText) or searchText == "" then
+            button.Visible = true
+            visibleCount = visibleCount + 1
+        else
+            button.Visible = false
         end
     end
+    
+    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, visibleCount * 50 + 20)
+end)
 
-    local remotes = getAllRemoteEvents()
-    print("Gefundene RemoteEvents: "..#remotes)
+-- Tool geben Funktion
+function giveTool(toolName)
+    -- Versuche zuerst aus ReplicatedStorage zu laden
+    local tool = ReplicatedStorage:FindFirstChild(toolName)
+    
+    if not tool then
+        -- Falls nicht gefunden, erstelle ein einfaches Tool
+        tool = Instance.new("Tool")
+        tool.Name = toolName
+        tool.RequiresHandle = true
+        
+        local handle = Instance.new("Part")
+        handle.Name = "Handle"
+        handle.Size = Vector3.new(1, 4, 0.2)
+        handle.Material = Enum.Material.Neon
+        handle.BrickColor = BrickColor.Random()
+        handle.Parent = tool
+        
+        -- Sound-Effekt
+        local sound = Instance.new("Sound")
+        sound.SoundId = "rbxasset://sounds/electronicpingshort.wav"
+        sound.Volume = 0.5
+        sound.Parent = handle
+        
+        tool.Equipped:Connect(function()
+            sound:Play()
+        end)
+    else
+        tool = tool:Clone()
+    end
+    
+    -- Tool zum Spieler-Backpack hinzufügen
+    tool.Parent = player.Backpack
+    
+    print("Tool gegeben: " .. toolName)
+end
 
-    for _, r in ipairs(remotes) do
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(1,-10,0,30)
-        btn.BackgroundColor3 = Color3.fromRGB(90,90,90)
-        btn.TextColor3 = Color3.fromRGB(220,220,220)
-        btn.Font = Enum.Font.Gotham
-        btn.TextScaled = true
-        btn.Text = "RemoteEvent: "..r.Name
-        btn.Parent = Scroll
+-- GUI Funktionen
+local isOpen = true
 
-        local corner = Instance.new("UICorner", btn)
-        corner.CornerRadius = UDim.new(0.1,0)
+closeButton.MouseButton1Click:Connect(function()
+    isOpen = false
+    local tween = TweenService:Create(mainFrame, 
+        TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), 
+        {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}
+    )
+    tween:Play()
+    
+    tween.Completed:Connect(function()
+        screenGui:Destroy()
+    end)
+end)
 
-        btn.MouseButton1Click:Connect(function()
-            warn("Starte Event -> "..r:GetFullName())
-            local ok, err = pcall(function()
-                r:FireServer()
-            end)
-            if not ok then
-                warn("Fehler beim FireServer: "..tostring(err))
+-- Dragging-Funktion für die GUI
+local dragToggle = nil
+local dragStart = nil
+local startPos = nil
+
+local function updateInput(input)
+    local delta = input.Position - dragStart
+    local position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, 
+                              startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    mainFrame.Position = position
+end
+
+titleBar.InputBegan:Connect(function(input)
+    if (input.UserInputType == Enum.UserInputType.MouseButton1 or 
+        input.UserInputType == Enum.UserInputType.Touch) then
+        dragToggle = true
+        dragStart = input.Position
+        startPos = mainFrame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragToggle = false
             end
         end)
     end
 end)
 
--- Button: Event Starter Fenster (Einzelklick)
-createButton("Start Events (GUI)", function()
-    local EventFrame = Instance.new("Frame")
-    EventFrame.Size = UDim2.new(0, 350, 0, 450)
-    EventFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-    EventFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-    EventFrame.BackgroundColor3 = Color3.fromRGB(40,40,40)
-    EventFrame.Parent = ScreenGui
-
-    local corner = Instance.new("UICorner", EventFrame)
-    corner.CornerRadius = UDim.new(0.05,0)
-
-    local EventTitle = Instance.new("TextLabel")
-    EventTitle.Size = UDim2.new(1,0,0,40)
-    EventTitle.BackgroundTransparency = 1
-    EventTitle.Text = "Event Starter"
-    EventTitle.TextColor3 = Color3.fromRGB(220,220,220)
-    EventTitle.Font = Enum.Font.GothamBold
-    EventTitle.TextSize = 24
-    EventTitle.Parent = EventFrame
-
-    local Close = Instance.new("TextButton")
-    Close.Size = UDim2.new(0,40,0,30)
-    Close.Position = UDim2.new(1,-45,0,5)
-    Close.Text = "X"
-    Close.Font = Enum.Font.GothamBold
-    Close.TextColor3 = Color3.fromRGB(255,100,100)
-    Close.BackgroundColor3 = Color3.fromRGB(70,70,70)
-    Close.Parent = EventFrame
-    local cc = Instance.new("UICorner", Close)
-    cc.CornerRadius = UDim.new(0.3,0)
-
-    Close.MouseButton1Click:Connect(function()
-        EventFrame:Destroy()
-    end)
-
-    local ScrollEvents = Instance.new("ScrollingFrame")
-    ScrollEvents.Size = UDim2.new(1,-10,1,-50)
-    ScrollEvents.Position = UDim2.new(0,5,0,45)
-    ScrollEvents.BackgroundTransparency = 1
-    ScrollEvents.ScrollBarThickness = 6
-    ScrollEvents.CanvasSize = UDim2.new(0,0,0,0)
-    ScrollEvents.Parent = EventFrame
-
-    local LayoutEvents = Instance.new("UIListLayout", ScrollEvents)
-    LayoutEvents.SortOrder = Enum.SortOrder.LayoutOrder
-    LayoutEvents.Padding = UDim.new(0,5)
-
-    local remotes = getAllRemoteEvents()
-    print("Events für Starter GUI gefunden: "..#remotes)
-
-    for _, r in ipairs(remotes) do
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(1,-10,0,35)
-        btn.BackgroundColor3 = Color3.fromRGB(90,90,90)
-        btn.TextColor3 = Color3.fromRGB(220,220,220)
-        btn.Font = Enum.Font.Gotham
-        btn.TextScaled = true
-        btn.Text = "Event: "..r.Name
-        btn.Parent = ScrollEvents
-
-        local bcorner = Instance.new("UICorner", btn)
-        bcorner.CornerRadius = UDim.new(0.1,0)
-
-        btn.MouseButton1Click:Connect(function()
-            warn("Starte Event -> "..r:GetFullName())
-            local ok, err = pcall(function()
-                r:FireServer()
-            end)
-            if not ok then
-                warn("Fehler beim FireServer: "..tostring(err))
-            end
-        end)
-    end
-
-    LayoutEvents:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        ScrollEvents.CanvasSize = UDim2.new(0,0,0, LayoutEvents.AbsoluteContentSize.Y + 10)
-    end)
-end)
-
--- NEU: Button -> Alle Events automatisch starten
-createButton("Starte ALLE Events", function()
-    local remotes = getAllRemoteEvents()
-    warn("Starte ALLE Events ("..#remotes..") ...")
-    for _, r in ipairs(remotes) do
-        if r:IsA("RemoteEvent") then
-            local ok, err = pcall(function()
-                r:FireServer()
-            end)
-            if ok then
-                warn("✔ Event gestartet: "..r:GetFullName())
-            else
-                warn("⚠ Fehler bei "..r:GetFullName()..": "..tostring(err))
-            end
-            task.wait(0.1) -- kleine Pause, um Spam zu vermeiden
+UserInputService.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or 
+       input.UserInputType == Enum.UserInputType.Touch then
+        if dragToggle then
+            updateInput(input)
         end
     end
 end)
+
+-- Öffnungs-Animation
+mainFrame.Size = UDim2.new(0, 0, 0, 0)
+mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+
+local openTween = TweenService:Create(mainFrame, 
+    TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), 
+    {Size = UDim2.new(0, 400, 0, 500), Position = UDim2.new(0.5, -200, 0.5, -250)}
+)
+openTween:Play()
+
+print("Tool Giver GUI geladen!")
+print("Verwende die Suchfunktion um schnell Tools zu finden!")
