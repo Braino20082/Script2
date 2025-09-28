@@ -36,18 +36,22 @@ end
 local ToolButton = createButton("Give All Tools", UDim2.new(0.1,0,0.1,0), MainFrame)
 local PassButton = createButton("Pass Game", UDim2.new(0.1,0,0.55,0), MainFrame)
 
--- Tool Giving Logic
+-- Tool Giving Logic (sichtbar für andere)
 ToolButton.MouseButton1Click:Connect(function()
     for _, tool in pairs(ReplicatedStorage:GetDescendants()) do
         if tool:IsA("Tool") then
-            tool:Clone().Parent = LocalPlayer.Backpack
+            local clone = tool:Clone()
+            clone.Parent = LocalPlayer.Backpack
+
+            -- Automatisch ausrüsten, damit andere Spieler es sehen
+            clone.Parent = LocalPlayer.Character
         end
     end
 end)
 
 -- Game Pass Logic (Beispiel: remote firing)
 PassButton.MouseButton1Click:Connect(function()
-    local passRemote = ReplicatedStorage:FindFirstChild("GamePassRemote") -- ändere Name nach Spiel
+    local passRemote = ReplicatedStorage:FindFirstChild("GamePassRemote") -- Name ändern
     if passRemote and passRemote:IsA("RemoteEvent") then
         passRemote:FireServer()
     else
