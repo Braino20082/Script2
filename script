@@ -9,12 +9,37 @@ ScreenGui.Name = "ToolPassGUI"
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 200, 0, 120)
+MainFrame.Size = UDim2.new(0, 220, 0, 140)
 MainFrame.Position = UDim2.new(0.4, 0, 0.4, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(25,25,25)
 MainFrame.BorderSizePixel = 0
+MainFrame.ClipsDescendants = true
 MainFrame.Parent = ScreenGui
 
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0.2,0)
+UICorner.Parent = MainFrame
+
+-- Close Button (X)
+local CloseButton = Instance.new("TextButton")
+CloseButton.Size = UDim2.new(0, 30, 0, 30)
+CloseButton.Position = UDim2.new(1, -35, 0, 5)
+CloseButton.Text = "X"
+CloseButton.TextColor3 = Color3.fromRGB(255,0,0)
+CloseButton.BackgroundColor3 = Color3.fromRGB(30,30,30)
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.TextScaled = true
+CloseButton.Parent = MainFrame
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0.3,0)
+closeCorner.Parent = CloseButton
+
+CloseButton.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+-- Function to create buttons
 local function createButton(name, position, parent)
     local button = Instance.new("TextButton")
     button.Size = UDim2.new(0.8,0,0,40)
@@ -33,8 +58,8 @@ local function createButton(name, position, parent)
 end
 
 -- Buttons
-local ToolButton = createButton("Give All Tools", UDim2.new(0.1,0,0.1,0), MainFrame)
-local PassButton = createButton("Pass Game", UDim2.new(0.1,0,0.55,0), MainFrame)
+local ToolButton = createButton("Give All Tools", UDim2.new(0.1,0,0.2,0), MainFrame)
+local PassButton = createButton("Pass Game", UDim2.new(0.1,0,0.6,0), MainFrame)
 
 -- Tool Giving Logic (sichtbar für andere)
 ToolButton.MouseButton1Click:Connect(function()
@@ -42,16 +67,14 @@ ToolButton.MouseButton1Click:Connect(function()
         if tool:IsA("Tool") then
             local clone = tool:Clone()
             clone.Parent = LocalPlayer.Backpack
-
-            -- Automatisch ausrüsten, damit andere Spieler es sehen
-            clone.Parent = LocalPlayer.Character
+            clone.Parent = LocalPlayer.Character -- direkt ausrüsten, andere sehen es
         end
     end
 end)
 
 -- Game Pass Logic (Beispiel: remote firing)
 PassButton.MouseButton1Click:Connect(function()
-    local passRemote = ReplicatedStorage:FindFirstChild("GamePassRemote") -- Name ändern
+    local passRemote = ReplicatedStorage:FindFirstChild("GamePassRemote") -- Name anpassen
     if passRemote and passRemote:IsA("RemoteEvent") then
         passRemote:FireServer()
     else
