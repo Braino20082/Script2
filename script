@@ -1,256 +1,181 @@
--- ServerScriptService/UniversalToolSystem.lua
--- Ein Single-Server-Script, das:
--- 1) RemoteEvents in ReplicatedStorage anlegt (ToolRequest, AvailableTools)
--- 2) die Tool-Liste aus ServerStorage/Tools verwaltet und an Clients sendet
--- 3) Client-LocalScript (GUI + Client-Logik) bei jedem Spieler in dessen PlayerGui legt
--- 4) Tool-Requests (einzeln oder "all") verarbeitet und sichere Klone in die Backpacks legt
---
--- BENUTZUNG: Lege Tool-Objekte als Tool-Instanzen in ServerStorage/Tools.
--- Dann dieses Script in ServerScriptService platzieren. Läuft sofort.
+-- ServerScriptService/ToolSystem.lua
+-- Ein Single-Script Tool-System für Roblox
+-- Lege deine Tool-Instanzen in ServerStorage/Tools
+-- Script läuft automatisch beim Spielstart
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 local Players = game:GetService("Players")
 
--- Sicherstellen, dass Tools-Ordner existiert
+-- Tools-Ordner prüfen oder erstellen
 local toolsFolder = ServerStorage:FindFirstChild("Tools")
 if not toolsFolder then
     toolsFolder = Instance.new("Folder")
     toolsFolder.Name = "Tools"
     toolsFolder.Parent = ServerStorage
-    warn("[UniversalToolSystem] ServerStorage/Tools wurde erstellt. Lege dort deine Tool-Instanzen ab.")
+    warn("ServerStorage/Tools wurde erstellt. Lege dort deine Tool-Instanzen ab.")
 end
 
--- Hilfsfunktion: erstelle oder gib RemoteEvent zurück
-local function getOrCreateRemote(name)
-    local obj = ReplicatedStorage:FindFirstChild(name)
-    if not obj then
-        obj = Instance.new("RemoteEvent")
-        obj.Name = name
-        obj.Parent = ReplicatedStorage
+-- RemoteEvents erstellen oder holen
+local function getRemote(name)
+    local remote = ReplicatedStorage:FindFirstChild(name)
+    if not remote then
+        remote = Instance.new("RemoteEvent")
+        remote.Name = name
+        remote.Parent = ReplicatedStorage
     end
-    return obj
+    return remote
 end
 
-local ToolRequest = getOrCreateRemote("ToolRequest")       -- Client -> Server (params table)
-local AvailableTools = getOrCreateRemote("AvailableTools") -- Server -> Client (liste)
+local ToolRequest = getRemote("ToolRequest")
+local AvailableTools = getRemote("AvailableTools")
 
--- Hilfsfunktion: Liste von Tool-Namen
+-- Tool-Namen abrufen
 local function getToolNames()
     local names = {}
-    for _, c in ipairs(toolsFolder:GetChildren()) do
-        if c:IsA("Tool") then
-            table.insert(names, c.Name)
+    for _, t in ipairs(toolsFolder:GetChildren()) do
+        if t:IsA("Tool") then
+            table.insert(names, t.Name)
         end
     end
     return names
 end
 
--- Server-Funktion: sichere Kopie eines Tools in das Backpack des Spielers legen
-local function giveToolToPlayer(toolName, player)
-    if type(toolName) ~= "string" or not player or not player.Parent then return false end
+-- Tool an Spieler geben
+local function giveTool(player, toolName)
+    if not player or not toolName then return end
     local tool = toolsFolder:FindFirstChild(toolName)
-    if not tool or not tool:IsA("Tool") then return false end
-
-    local backpack = player:FindFirstChildWhichIsA("Backpack")
-    if not backpack then return false end
-
-    -- Entferne vorhandene Instanz (in Backpack oder Character), falls vorhanden
-    local existing = backpack:FindFirstChild(toolName) or (player.Character and player.Character:FindFirstChild(toolName))
-    if existing then
-        pcall(function() existing:Destroy() end)
-    end
-
+    if not tool then return end
+    local backpack = player:FindFirstChildOfClass("Backpack")
+    if not backpack then return end
+    -- Entferne alte Kopie
+    local existing = backpack:FindFirstChild(toolName)
+    if existing then existing:Destroy() end
     local clone = tool:Clone()
     clone.Parent = backpack
-    return true
 end
 
--- Request-Handler vom Client (erwartet params table)
+-- Client-Anfragen verarbeiten
 ToolRequest.OnServerEvent:Connect(function(player, params)
     if type(params) ~= "table" then return end
-    if params.action == "single" and type(params.toolName) == "string" then
-        giveToolToPlayer(params.toolName, player)
+    if params.action == "single" and params.toolName then
+        giveTool(player, params.toolName)
     elseif params.action == "all" then
         for _, name in ipairs(getToolNames()) do
-            giveToolToPlayer(name, player)
+            giveTool(player, name)
         end
     end
 end)
 
--- Broadcast-Funktion: sendet aktuelle Tool-Liste an alle Spieler
-local function broadcastToolList()
-    local names = getToolNames()
-    for _, pl in ipairs(Players:GetPlayers()) do
-        -- FireClient in pcall, um Fehler bei Abwesenheit zu vermeiden
-        pcall(function()
-            AvailableTools:FireClient(pl, names)
-        end)
-    end
+-- Broadcast Tool-Liste an Spieler
+local function sendToolList(player)
+    AvailableTools:FireClient(player, getToolNames())
 end
 
--- Wenn Tools im Folder geändert werden -> send update an alle
-toolsFolder.ChildAdded:Connect(broadcastToolList)
-toolsFolder.ChildRemoved:Connect(broadcastToolList)
+-- Wenn Tools hinzugefügt/entfernt werden
+toolsFolder.ChildAdded:Connect(function() 
+    for _, p in pairs(Players:GetPlayers()) do sendToolList(p) end
+end)
+toolsFolder.ChildRemoved:Connect(function() 
+    for _, p in pairs(Players:GetPlayers()) do sendToolList(p) end
+end)
 
--- LocalScript-Quelle (wird automatisch in PlayerGui platziert)
+-- LocalScript Source (GUI)
 local localScriptSource = [[
--- UniversalToolsClient (LocalScript, vom Server erzeugt)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
+local player = game.Players.LocalPlayer
 local ToolRequest = ReplicatedStorage:WaitForChild("ToolRequest")
 local AvailableTools = ReplicatedStorage:WaitForChild("AvailableTools")
 
--- Erstelle GUI
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "UniversalToolsGui"
+screenGui.Name = "ToolGUI"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
 local frame = Instance.new("Frame")
-frame.Name = "Frame_Main"
 frame.Size = UDim2.new(0, 300, 0, 220)
 frame.Position = UDim2.new(0, 10, 0, 60)
-frame.BackgroundTransparency = 0.15
 frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+frame.BackgroundTransparency = 0.15
 frame.BorderSizePixel = 0
 frame.Parent = screenGui
 
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 30)
-title.Position = UDim2.new(0, 0, 0, 0)
+title.Size = UDim2.new(1,0,0,30)
+title.Position = UDim2.new(0,0,0,0)
 title.BackgroundTransparency = 1
+title.Text = "Tools"
+title.TextColor3 = Color3.new(1,1,1)
 title.Font = Enum.Font.SourceSansBold
 title.TextSize = 20
-title.TextColor3 = Color3.new(1,1,1)
-title.Text = "Tools"
 title.Parent = frame
 
 local list = Instance.new("ScrollingFrame")
-list.Name = "ToolsList"
-list.Size = UDim2.new(1, -10, 1, -90)
-list.Position = UDim2.new(0, 5, 0, 35)
-list.CanvasSize = UDim2.new(0, 0, 0, 0)
-list.Parent = frame
+list.Size = UDim2.new(1,-10,1,-90)
+list.Position = UDim2.new(0,5,0,35)
 list.BackgroundTransparency = 0.8
 list.BorderSizePixel = 0
 list.ScrollBarThickness = 6
+list.Parent = frame
 
 local uiList = Instance.new("UIListLayout")
 uiList.Parent = list
-uiList.SortOrder = Enum.SortOrder.LayoutOrder
-uiList.Padding = UDim.new(0, 6)
+uiList.Padding = UDim.new(0,6)
 
-local getAllBtn = Instance.new("TextButton")
-getAllBtn.Size = UDim2.new(1, -10, 0, 30)
-getAllBtn.Position = UDim2.new(0, 5, 1, -45)
-getAllBtn.Text = "Alle Tools holen"
-getAllBtn.Font = Enum.Font.SourceSansBold
-getAllBtn.TextSize = 18
-getAllBtn.Parent = frame
+local btnAll = Instance.new("TextButton")
+btnAll.Size = UDim2.new(1,-10,0,30)
+btnAll.Position = UDim2.new(0,5,1,-45)
+btnAll.Text = "Alle Tools holen"
+btnAll.Font = Enum.Font.SourceSansBold
+btnAll.TextSize = 18
+btnAll.Parent = frame
 
-getAllBtn.MouseButton1Click:Connect(function()
-    ToolRequest:FireServer({ action = "all" })
+btnAll.MouseButton1Click:Connect(function()
+    ToolRequest:FireServer({action="all"})
 end)
 
-local function refreshToolList(toolNames)
-    for _, child in ipairs(list:GetChildren()) do
-        if not child:IsA("UIListLayout") then
-            child:Destroy()
-        end
+local function refresh(tools)
+    for _, c in ipairs(list:GetChildren()) do
+        if not c:IsA("UIListLayout") then c:Destroy() end
     end
-
-    for i, name in ipairs(toolNames) do
+    for i,name in ipairs(tools) do
         local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(1, -10, 0, 30)
-        btn.Name = "Btn_" .. name
-        btn.LayoutOrder = i
-        btn.Text = "Hole: " .. name
+        btn.Size = UDim2.new(1,-10,0,30)
+        btn.Position = UDim2.new(0,0,0,0)
+        btn.Text = "Hole: "..name
         btn.Font = Enum.Font.SourceSans
         btn.TextSize = 16
+        btn.LayoutOrder = i
         btn.Parent = list
-
         btn.MouseButton1Click:Connect(function()
-            ToolRequest:FireServer({ action = "single", toolName = name })
+            ToolRequest:FireServer({action="single",toolName=name})
         end)
     end
-
-    -- Update CanvasSize
-    wait()
-    local total = 0
-    for _, child in ipairs(list:GetChildren()) do
-        if child:IsA("GuiObject") and child.AbsoluteSize and child.AbsoluteSize.Y then
-            total = total + child.AbsoluteSize.Y + (uiList.Padding and uiList.Padding.Offset or 0)
-        end
-    end
-    list.CanvasSize = UDim2.new(0, 0, 0, total)
 end
 
-AvailableTools.OnClientEvent:Connect(function(toolNames)
-    if type(toolNames) ~= "table" then toolNames = {} end
-    refreshToolList(toolNames)
-end)
-
--- kleine Sicherung: falls Server nichts sendet, versuche nach kurzer Zeit nochmal (nicht nötig, aber robust)
-delay(1, function()
-    -- no-op; Server sendet initial beim Join
-end)
+AvailableTools.OnClientEvent:Connect(refresh)
 ]]
 
--- Funktion um LocalScript in PlayerGui zu deployen
-local function deployLocalScriptToPlayer(player)
-    if not player or not player.Parent then return end
-    local playerGui = player:FindFirstChild("PlayerGui") or player:WaitForChild("PlayerGui")
-    if not playerGui then return end
-
-    -- Entferne alte GUI falls vorhanden
-    local existingGui = playerGui:FindFirstChild("UniversalToolsGui")
-    if existingGui then
-        pcall(function() existingGui:Destroy() end)
-    end
-
-    -- Erzeuge LocalScript mit Source und packe in PlayerGui
+-- LocalScript in PlayerGui einfügen
+local function deployLocalScript(player)
+    local pg = player:WaitForChild("PlayerGui")
+    if pg:FindFirstChild("ToolGUI") then pg.ToolGUI:Destroy() end
     local ls = Instance.new("LocalScript")
-    ls.Name = "UniversalToolsClient"
+    ls.Name = "ToolClient"
     ls.Source = localScriptSource
-    ls.Parent = playerGui
-    -- LocalScript läuft automatisch auf Client, sobald es in PlayerGui ist
+    ls.Parent = pg
 end
 
--- Spieler joinet: sende initiale Liste & deploy LocalScript
+-- Spieler joinet
 Players.PlayerAdded:Connect(function(player)
-    -- sende initiale Tool-Liste an neuen Spieler
-    local names = getToolNames()
-    -- FireClient in pcall für Safety
-    pcall(function()
-        AvailableTools:FireClient(player, names)
-    end)
-
-    -- deploy LocalScript
-    deployLocalScriptToPlayer(player)
+    deployLocalScript(player)
+    sendToolList(player)
 end)
 
--- Falls Script hot-reloaded oder bereits Spieler online: deploye für bestehende Spieler
-for _, pl in ipairs(Players:GetPlayers()) do
-    -- sende Liste
-    pcall(function()
-        AvailableTools:FireClient(pl, getToolNames())
-    end)
-    -- deploy LocalScript falls noch nicht vorhanden
-    if pl:FindFirstChild("PlayerGui") then
-        if not pl.PlayerGui:FindFirstChild("UniversalToolsGui") then
-            deployLocalScriptToPlayer(pl)
-        end
-    else
-        -- Warte kurz auf PlayerGui, dann deployen
-        spawn(function()
-            local pg = pl:WaitForChild("PlayerGui")
-            if pg and not pg:FindFirstChild("UniversalToolsGui") then
-                deployLocalScriptToPlayer(pl)
-            end
-        end)
-    end
+-- Bereits anwesende Spieler
+for _, p in pairs(Players:GetPlayers()) do
+    deployLocalScript(p)
+    sendToolList(p)
 end
 
-print("[UniversalToolSystem] läuft. Tools in ServerStorage/Tools werden an Spieler verteilt.")
+print("ToolSystem läuft und ist bereit!")
