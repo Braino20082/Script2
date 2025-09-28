@@ -1,38 +1,25 @@
--- Ein-Skript Steal Brainrot + GUI
--- Platziere dieses Script als LocalScript in StarterPlayerScripts oder StarterGui
+-- Steal Brainrot (Single Server Script)
+-- Platziere dieses Script in ServerScriptService
+-- Verhalten:
+-- - Wenn ein Spieler ein Tool/Item namens "Brainrot" ausrüstet (Tool.Equipped), wird
+--   geprüft, welches Base-Part (in Workspace.Bases) am nächsten zum Brainrot ist
+--   bzw. zur aktuellen Position des Spielers.
+-- - Der Server führt eine sichere, serverseitige "Fly-to-Base"-Bewegung aus (smooth),
+--   damit der Spieler nicht als "cheater" markiert/kicked wird.
+-- - Das Script erzeugt für jeden Spieler ein einfaches Status-GUI (wird in PlayerGui
+--   abgelegt) damit der Spieler Feedback bekommt.
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
-local player = Players.LocalPlayer
+local RunService = game:GetService("RunService")
 
--- == GUI erstellen ==
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "StealGui"
-screenGui.Parent = player:WaitForChild("PlayerGui")
+-- Einstellungen
+local FLY_DURATION = 1.8 -- Sekunden für den "Flug"
+local FLY_HEIGHT_OFFSET = 6 -- Höhe über dem Base-Part, in die der Spieler gesetzt wird
+local ALLOW_WHILE_SEATED = false -- ob Spieler während Sit/Vehicle geflogen werden dürfen
+local TOOL_NAME = "Brainrot" -- Name des Tools/Items, das das Fliegen auslöst
 
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 220, 0, 70)
-frame.Position = UDim2.new(0.5, -110, 0.9, -35)
-frame.BackgroundTransparency = 0.5
-frame.Parent = screenGui
-
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, -10, 0, 30)
-title.Position = UDim2.new(0, 5, 0, 5)
-title.Text = "Steal Brainrot"
-title.TextScaled = true
-title.BackgroundTransparency = 1
-title.Parent = frame
-
-local status = Instance.new("TextLabel")
-status.Size = UDim2.new(1, -10, 0, 30)
-status.Position = UDim2.new(0, 5, 0, 35)
-status.Text = "Status: ready"
-status.TextScaled = true
-status.BackgroundTransparency = 1
-status.Parent = frame
-
--- == Funktion: nächstes Base-Part finden ==
+-- Hilfsfunktion: nächstes Base-Part finden (unter Workspace.Bases)
 local function findNearestBase(position)
     local basesFolder = Workspace:FindFirstChild("Bases")
     if not basesFolder then return nil end
@@ -51,57 +38,207 @@ local function findNearestBase(position)
     return nearest
 end
 
--- == Funktion: teleportiere Spieler zur Base ==
-local function teleportToBase(sourcePosition)
-    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
-    local hrp = player.Character.HumanoidRootPart
-    local base = findNearestBase(sourcePosition or hrp.Position)
-    if not base then
-        status.Text = "Fehler: Keine Base gefunden"
+-- GUI erstellen (einfaches Status-Label) für Spieler
+local function createStatusGuiForPlayer(player)
+    -- Falls bereits vorhanden, return
+    if player:FindFirstChild("PlayerGui") and player.PlayerGui:FindFirstChild("StealStatusGui") then
         return
     end
-    hrp.CFrame = base.CFrame + Vector3.new(0,5,0)
-    status.Text = "Geflogen zur Base!"
-    wait(3)
-    status.Text = "Status: ready"
+
+    local playerGui = player:WaitForChild("PlayerGui")
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "StealStatusGui"
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = playerGui
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 240, 0, 48)
+    frame.Position = UDim2.new(0.5, -120, 0.92, -24)
+    frame.BackgroundTransparency = 0.55
+    frame.Parent = screenGui
+
+    local label = Instance.new("TextLabel")
+    label.Name = "StatusLabel"
+    label.Size = UDim2.new(1, -10, 1, -10)
+    label.Position = UDim2.new(0, 5, 0, 5)
+    label.BackgroundTransparency = 1
+    label.TextScaled = true
+    label.Text = "Steal: ready"
+    label.Parent = frame
+
+    return label
 end
 
--- == Funktion: Brainrot stehlen ==
-local function stealBrainrot(brainrotPart)
-    if not brainrotPart then return end
-    status.Text = "Stealing..."
-    teleportToBase(brainrotPart.Position)
+-- Flight: sichere serverseitige Smooth-Teleport
+local function flyPlayerToBase(player, sourcePosition)
+    if not player or not player.Character then return false, "keine Character" end
+    local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+    local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+    if not hrp or not humanoid then return false, "keine Humanoid/HRP" end
+
+    -- Option: blocken, wenn der Spieler sitzt und ALLOW_WHILE_SEATED=false
+    if humanoid.SeatPart and not ALLOW_WHILE_SEATED then
+        return false, "Du sitzt gerade. Stehlen nicht erlaubt."
+    end
+
+    local startCFrame = hrp.CFrame
+    local base = findNearestBase(sourcePosition or hrp.Position)
+    if not base then
+        return false, "Keine Base gefunden."
+    end
+
+    local targetCFrame = base.CFrame + Vector3.new(0, FLY_HEIGHT_OFFSET, 0)
+
+    -- Deaktiviere Physics-Interferenzen während des Flugs
+    local oldPlatformStand = humanoid.PlatformStand
+    humanoid.PlatformStand = true
+
+    -- Optional: kurz unsichtbar / Kollisionsdeaktivierung für sanfteren Flug
+    local oldCanCollide = {}
+    for _, part in ipairs(player.Character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            oldCanCollide[part] = part.CanCollide
+            part.CanCollide = false
+        end
+    end
+
+    -- Smooth Lerp über FLY_DURATION Sekunden (serverseitig)
+    local elapsed = 0
+    local lastHRPCFrame = hrp.CFrame
+    while elapsed < FLY_DURATION do
+        local dt = RunService.Heartbeat:Wait()
+        elapsed = math.min(FLY_DURATION, elapsed + dt)
+        local alpha = elapsed / FLY_DURATION
+        -- CFrame-Lerp: behalte Rotation bei der Bewegung (lerp zwischen CFrames)
+        local newCFrame = startCFrame:Lerp(targetCFrame, alpha)
+        -- Setze HumanoidRootPart CFrame serverseitig
+        if hrp and hrp.Parent then
+            hrp.CFrame = newCFrame
+            lastHRPCFrame = newCFrame
+        else
+            break
+        end
+    end
+
+    -- Stelle Kollision & PlatformStand wieder her
+    for part, val in pairs(oldCanCollide) do
+        if part and part.Parent then
+            part.CanCollide = val
+        end
+    end
+    if humanoid and humanoid.Parent then
+        humanoid.PlatformStand = oldPlatformStand
+    end
+
+    -- Sicherheit: stelle Character an finalen Ziel-CFrame
+    if hrp and hrp.Parent then
+        hrp.CFrame = targetCFrame
+    end
+
+    return true, "Erfolgreich zur Base geflogen"
 end
 
--- == Brainrot-Teile überwachen ==
-local function setupBrainrot(brainrotPart)
-    if not brainrotPart:IsA("BasePart") then return end
+-- Überwache Tools/Items mit Namen TOOL_NAME für einen Spieler
+local function watchPlayerTools(player)
+    -- erstelle GUI-Label
+    local statusLabel = createStatusGuiForPlayer(player)
 
-    local prompt = brainrotPart:FindFirstChildOfClass("ProximityPrompt")
-    if prompt then
-        prompt.Triggered:Connect(function()
-            stealBrainrot(brainrotPart)
-        end)
-    else
-        brainrotPart.Touched:Connect(function(hit)
-            local hChar = hit.Parent
-            if hChar and hChar:FindFirstChild("Humanoid") and Players:GetPlayerFromCharacter(hChar) == player then
-                stealBrainrot(brainrotPart)
+    local function onEquipped(tool)
+        if not tool or not tool.Name then return end
+        if tool.Name == TOOL_NAME then
+            -- Wenn das Tool ausgerüstet wird: fliege zum nächsten Base (Quelle ist Tool.Position oder Spieler)
+            local sourcePos = nil
+            if tool:IsA("Tool") then
+                -- Falls das Tool ein Handle hat, verwende dessen Position
+                local handle = tool:FindFirstChild("Handle")
+                if handle and handle:IsA("BasePart") then
+                    sourcePos = handle.Position
+                end
             end
+
+            if not sourcePos and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                sourcePos = player.Character.HumanoidRootPart.Position
+            end
+
+            if statusLabel then statusLabel.Text = "Steal: stealing..." end
+            local ok, msg = flyPlayerToBase(player, sourcePos)
+            if statusLabel then
+                if ok then
+                    statusLabel.Text = "Steal: Geflogen"
+                else
+                    statusLabel.Text = "Fehler: " .. tostring(msg)
+                end
+            end
+            -- nach kurzer Zeit zurück auf ready
+            delay(2.5, function()
+                if statusLabel and statusLabel.Parent then
+                    statusLabel.Text = "Steal: ready"
+                end
+            end)
+        end
+    end
+
+    local function onToolAdded(tool)
+        if tool and tool.Name == TOOL_NAME and tool:IsA("Tool") then
+            -- Verbinde Equipped-Ereignis
+            tool.Equipped:Connect(function()
+                onEquipped(tool)
+            end)
+        end
+    end
+
+    -- Verbinde bestehende Tools
+    if player.Character then
+        for _, t in ipairs(player.Character:GetChildren()) do
+            onToolAdded(t)
+        end
+    end
+    if player.Backpack then
+        for _, t in ipairs(player.Backpack:GetChildren()) do
+            onToolAdded(t)
+        end
+    end
+
+    -- Wenn Tools gespawnt werden
+    player.CharacterAdded:Connect(function(char)
+        -- kurz warten bis alles geladen
+        wait(0.1)
+        for _, t in ipairs(char:GetChildren()) do
+            onToolAdded(t)
+        end
+        char.ChildAdded:Connect(function(child)
+            onToolAdded(child)
         end)
-    end
+    end)
+
+    player.Backpack.ChildAdded:Connect(function(child)
+        onToolAdded(child)
+    end)
 end
 
--- Alle existierenden Brainrot-Teile
-for _, obj in ipairs(Workspace:GetDescendants()) do
-    if obj.Name == "Brainrot" then
-        setupBrainrot(obj)
-    end
-end
-
--- Neue Brainrot-Teile automatisch überwachen
-Workspace.DescendantAdded:Connect(function(desc)
-    if desc.Name == "Brainrot" then
-        setupBrainrot(desc)
-    end
+-- Haupt: bei neuem Spieler Überwachung starten
+Players.PlayerAdded:Connect(function(player)
+    -- kurz warten bis PlayerGui verfügbar
+    player.CharacterAdded:Wait()
+    watchPlayerTools(player)
 end)
+
+-- Für bereits im Spiel befindliche Spieler
+for _, pl in ipairs(Players:GetPlayers()) do
+    -- sicherstellen, dass CharacterLoaded/PlayerGui existieren
+    if not pl.Character then
+        pl.CharacterAdded:Wait()
+    end
+    watchPlayerTools(pl)
+end
+
+-- Hinweis:
+-- * Platziere in Workspace einen Folder namens "Bases" mit Base-Parts.
+-- * Benenne das Tool/Item, das das Fliegen auslösen soll, "Brainrot" (genau der Name).
+-- * Dieses Script läuft vollständig serverseitig. Dadurch ist die Teleportation
+--   weniger wahrscheinlich, vom Server als Exploit zu erscheinen; Spieler werden
+--   nicht für den Teleport (wegen clientseitigem SetPrimaryPartCFrame) gekickt.
+-- * Wenn du eine Client-seitige Flug-Animation möchtest (z.B. Partikel, Effekte),
+--   solltest du ein RemoteEvent verwenden: server feuert Event an den Client, damit
+--   der Client VFX abspielt. Das ist möglich, wurde hier aber bewusst weggelassen
+--   um das Script "einfach" zu halten.
