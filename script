@@ -1,58 +1,287 @@
--- 📌 Einfaches GUI-Beispiel (sichtbar beim Spielstart)
-local player = game.Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
+-- LocalScript in StarterGui
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
 
--- ScreenGui erstellen
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "ToolsGui"
-screenGui.ResetOnSpawn = false
-screenGui.Parent = playerGui
+-- ScreenGui
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "AdminPanelGui"
+ScreenGui.Parent = player:WaitForChild("PlayerGui")
 
--- Hauptfenster
-local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 300, 0, 180)
-mainFrame.Position = UDim2.new(0.5, -150, 0.5, -90)
-mainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-mainFrame.BorderSizePixel = 0
-mainFrame.Visible = true
-mainFrame.Parent = screenGui
+-- Hauptframe
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 250, 0, 400)
+MainFrame.Position = UDim2.new(0, 20, 0.5, -200)
+MainFrame.BackgroundColor3 = Color3.fromRGB(40,40,40)
+MainFrame.Parent = ScreenGui
+
+local corner = Instance.new("UICorner", MainFrame)
+corner.CornerRadius = UDim.new(0.05,0)
 
 -- Titel
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 40)
-title.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-title.Text = "📦 Tools Menü"
-title.TextColor3 = Color3.fromRGB(255, 255, 255)
-title.Font = Enum.Font.GothamBold
-title.TextSize = 24
-title.Parent = mainFrame
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1,0,0,40)
+Title.BackgroundTransparency = 1
+Title.Text = "Admin Panel"
+Title.TextColor3 = Color3.fromRGB(220,220,220)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 24
+Title.Parent = MainFrame
 
--- ❌ Schließen-Button
-local closeButton = Instance.new("TextButton")
-closeButton.Size = UDim2.new(0, 40, 0, 40)
-closeButton.Position = UDim2.new(1, -40, 0, 0)
-closeButton.Text = "X"
-closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-closeButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-closeButton.Font = Enum.Font.GothamBold
-closeButton.TextSize = 20
-closeButton.Parent = mainFrame
+-- ScrollFrame für Buttons
+local Scroll = Instance.new("ScrollingFrame")
+Scroll.Size = UDim2.new(1,-10,1,-50)
+Scroll.Position = UDim2.new(0,5,0,45)
+Scroll.BackgroundTransparency = 1
+Scroll.ScrollBarThickness = 6
+Scroll.CanvasSize = UDim2.new(0,0,0,0)
+Scroll.Parent = MainFrame
 
-closeButton.MouseButton1Click:Connect(function()
-    mainFrame.Visible = false -- Fenster ausblenden
+local Layout = Instance.new("UIListLayout", Scroll)
+Layout.SortOrder = Enum.SortOrder.LayoutOrder
+Layout.Padding = UDim.new(0,5)
+
+Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    Scroll.CanvasSize = UDim2.new(0,0,0, Layout.AbsoluteContentSize.Y + 10)
 end)
 
--- 📦 Tools-Button (noch ohne Funktion)
-local getToolsButton = Instance.new("TextButton")
-getToolsButton.Size = UDim2.new(0.8, 0, 0, 60)
-getToolsButton.Position = UDim2.new(0.1, 0, 0.5, -30)
-getToolsButton.Text = "📦 Tools erhalten"
-getToolsButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-getToolsButton.BackgroundColor3 = Color3.fromRGB(70, 130, 180)
-getToolsButton.Font = Enum.Font.GothamBold
-getToolsButton.TextSize = 22
-getToolsButton.Parent = mainFrame
+-- Funktion: Button erstellen
+local function createButton(text, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1,-10,0,35)
+    btn.BackgroundColor3 = Color3.fromRGB(90,90,90)
+    btn.TextColor3 = Color3.fromRGB(220,220,220)
+    btn.Font = Enum.Font.Gotham
+    btn.TextScaled = true
+    btn.Text = text
+    btn.Parent = Scroll
 
-getToolsButton.MouseButton1Click:Connect(function()
-    print("Button geklickt ✅ (Tools-Funktion kommt als nächstes!)")
+    local bcorner = Instance.new("UICorner", btn)
+    bcorner.CornerRadius = UDim.new(0.1,0)
+
+    btn.MouseButton1Click:Connect(callback)
+    return btn
+end
+
+-- Funktion: Alle RemoteEvents einsammeln
+local function getAllRemoteEvents()
+    local function gather(parent)
+        local out = {}
+        for _, v in pairs(parent:GetDescendants()) do
+            if v:IsA("RemoteEvent") then
+                table.insert(out, v)
+            end
+        end
+        return out
+    end
+
+    local remotes = {}
+    for _, p in pairs({game:GetService("ReplicatedStorage"), workspace}) do
+        for _, r in pairs(gather(p)) do
+            table.insert(remotes, r)
+        end
+    end
+    return remotes
+end
+
+-- Button: RemoteEvents im Output listen
+createButton("List RemoteEvents (print)", function()
+    local remotes = getAllRemoteEvents()
+    print("Gefundene RemoteEvents: "..#remotes)
+    for i, r in ipairs(remotes) do
+        print(i, r:GetFullName())
+    end
+end)
+
+-- Button: GUI Liste von RemoteEvents mit Eingabefeld für Args
+createButton("List RemoteEvents (GUI)", function()
+    for _, child in ipairs(Scroll:GetChildren()) do
+        if child:IsA("TextButton") and child.Text:find("RemoteEvent:") then
+            child:Destroy()
+        end
+    end
+
+    local remotes = getAllRemoteEvents()
+    print("Gefundene RemoteEvents: "..#remotes)
+
+    for _, r in ipairs(remotes) do
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1,-10,0,30)
+        btn.BackgroundColor3 = Color3.fromRGB(90,90,90)
+        btn.TextColor3 = Color3.fromRGB(220,220,220)
+        btn.Font = Enum.Font.Gotham
+        btn.TextScaled = true
+        btn.Text = "RemoteEvent: "..r.Name
+        btn.Parent = Scroll
+
+        local corner = Instance.new("UICorner", btn)
+        corner.CornerRadius = UDim.new(0.1,0)
+
+        btn.MouseButton1Click:Connect(function()
+            -- Eingabefeld öffnen
+            local Frame = Instance.new("Frame")
+            Frame.Size = UDim2.new(0,300,0,120)
+            Frame.Position = UDim2.new(0.5,0,0.5,0)
+            Frame.AnchorPoint = Vector2.new(0.5,0.5)
+            Frame.BackgroundColor3 = Color3.fromRGB(50,50,50)
+            Frame.Parent = ScreenGui
+
+            local fc = Instance.new("UICorner", Frame)
+            fc.CornerRadius = UDim.new(0.05,0)
+
+            local Label = Instance.new("TextLabel")
+            Label.Size = UDim2.new(1,0,0,30)
+            Label.BackgroundTransparency = 1
+            Label.Text = "Argumente für "..r.Name.." (Komma getrennt):"
+            Label.TextColor3 = Color3.fromRGB(220,220,220)
+            Label.Font = Enum.Font.Gotham
+            Label.TextSize = 16
+            Label.Parent = Frame
+
+            local Box = Instance.new("TextBox")
+            Box.Size = UDim2.new(1,-20,0,30)
+            Box.Position = UDim2.new(0,10,0,40)
+            Box.BackgroundColor3 = Color3.fromRGB(70,70,70)
+            Box.TextColor3 = Color3.fromRGB(255,255,255)
+            Box.PlaceholderText = "z.B. Hallo, 123, true"
+            Box.Font = Enum.Font.Gotham
+            Box.TextSize = 16
+            Box.Parent = Frame
+
+            local bc = Instance.new("UICorner", Box)
+            bc.CornerRadius = UDim.new(0.1,0)
+
+            local Send = Instance.new("TextButton")
+            Send.Size = UDim2.new(0.5,-15,0,30)
+            Send.Position = UDim2.new(0,10,1,-40)
+            Send.BackgroundColor3 = Color3.fromRGB(90,90,90)
+            Send.Text = "Send"
+            Send.TextColor3 = Color3.fromRGB(255,255,255)
+            Send.Font = Enum.Font.GothamBold
+            Send.TextSize = 16
+            Send.Parent = Frame
+            local sc = Instance.new("UICorner", Send)
+            sc.CornerRadius = UDim.new(0.2,0)
+
+            local Cancel = Instance.new("TextButton")
+            Cancel.Size = UDim2.new(0.5,-15,0,30)
+            Cancel.Position = UDim2.new(0.5,5,1,-40)
+            Cancel.BackgroundColor3 = Color3.fromRGB(90,90,90)
+            Cancel.Text = "Cancel"
+            Cancel.TextColor3 = Color3.fromRGB(255,255,255)
+            Cancel.Font = Enum.Font.GothamBold
+            Cancel.TextSize = 16
+            Cancel.Parent = Frame
+            local cc = Instance.new("UICorner", Cancel)
+            cc.CornerRadius = UDim.new(0.2,0)
+
+            Cancel.MouseButton1Click:Connect(function()
+                Frame:Destroy()
+            end)
+
+            Send.MouseButton1Click:Connect(function()
+                local raw = Box.Text
+                local args = {}
+                for part in string.gmatch(raw, "([^,]+)") do
+                    part = part:gsub("^%s*(.-)%s*$","%1") -- trim
+                    if tonumber(part) then
+                        table.insert(args, tonumber(part))
+                    elseif part == "true" then
+                        table.insert(args, true)
+                    elseif part == "false" then
+                        table.insert(args, false)
+                    else
+                        table.insert(args, part)
+                    end
+                end
+                warn("FireServer auf "..r:GetFullName().." mit Args:", unpack(args))
+                local ok, err = pcall(function()
+                    r:FireServer(unpack(args))
+                end)
+                if not ok then
+                    warn("Fehler beim FireServer: "..tostring(err))
+                end
+                Frame:Destroy()
+            end)
+        end)
+    end
+end)
+
+-- Button: Event Starter Fenster
+createButton("Start Events", function()
+    local EventFrame = Instance.new("Frame")
+    EventFrame.Size = UDim2.new(0, 350, 0, 450)
+    EventFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+    EventFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+    EventFrame.BackgroundColor3 = Color3.fromRGB(40,40,40)
+    EventFrame.Parent = ScreenGui
+
+    local corner = Instance.new("UICorner", EventFrame)
+    corner.CornerRadius = UDim.new(0.05,0)
+
+    local EventTitle = Instance.new("TextLabel")
+    EventTitle.Size = UDim2.new(1,0,0,40)
+    EventTitle.BackgroundTransparency = 1
+    EventTitle.Text = "Event Starter"
+    EventTitle.TextColor3 = Color3.fromRGB(220,220,220)
+    EventTitle.Font = Enum.Font.GothamBold
+    EventTitle.TextSize = 24
+    EventTitle.Parent = EventFrame
+
+    local Close = Instance.new("TextButton")
+    Close.Size = UDim2.new(0,40,0,30)
+    Close.Position = UDim2.new(1,-45,0,5)
+    Close.Text = "X"
+    Close.Font = Enum.Font.GothamBold
+    Close.TextColor3 = Color3.fromRGB(255,100,100)
+    Close.BackgroundColor3 = Color3.fromRGB(70,70,70)
+    Close.Parent = EventFrame
+    local cc = Instance.new("UICorner", Close)
+    cc.CornerRadius = UDim.new(0.3,0)
+
+    Close.MouseButton1Click:Connect(function()
+        EventFrame:Destroy()
+    end)
+
+    local ScrollEvents = Instance.new("ScrollingFrame")
+    ScrollEvents.Size = UDim2.new(1,-10,1,-50)
+    ScrollEvents.Position = UDim2.new(0,5,0,45)
+    ScrollEvents.BackgroundTransparency = 1
+    ScrollEvents.ScrollBarThickness = 6
+    ScrollEvents.CanvasSize = UDim2.new(0,0,0,0)
+    ScrollEvents.Parent = EventFrame
+
+    local LayoutEvents = Instance.new("UIListLayout", ScrollEvents)
+    LayoutEvents.SortOrder = Enum.SortOrder.LayoutOrder
+    LayoutEvents.Padding = UDim.new(0,5)
+
+    local remotes = getAllRemoteEvents()
+    print("Events für Starter GUI gefunden: "..#remotes)
+
+    for _, r in ipairs(remotes) do
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1,-10,0,35)
+        btn.BackgroundColor3 = Color3.fromRGB(90,90,90)
+        btn.TextColor3 = Color3.fromRGB(220,220,220)
+        btn.Font = Enum.Font.Gotham
+        btn.TextScaled = true
+        btn.Text = "Event: "..r.Name
+        btn.Parent = ScrollEvents
+
+        local bcorner = Instance.new("UICorner", btn)
+        bcorner.CornerRadius = UDim.new(0.1,0)
+
+        btn.MouseButton1Click:Connect(function()
+            warn("Starte Event -> "..r:GetFullName())
+            local ok, err = pcall(function()
+                r:FireServer()
+            end)
+            if not ok then
+                warn("Fehler beim FireServer: "..tostring(err))
+            end
+        end)
+    end
+
+    LayoutEvents:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        ScrollEvents.CanvasSize = UDim2.new(0,0,0, LayoutEvents.AbsoluteContentSize.Y + 10)
+    end)
 end)
