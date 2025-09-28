@@ -42,7 +42,7 @@ CloseButton.TextSize = 20
 CloseButton.Parent = MainFrame
 
 CloseButton.MouseButton1Click:Connect(function()
-    ScreenGui:Destroy()
+	ScreenGui:Destroy()
 end)
 
 -- ScrollFrame für Events
@@ -61,81 +61,80 @@ UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
 -- Funktion zum Erstellen eines Event-Buttons
 local function CreateEventButton(event)
-    local Holder = Instance.new("Frame")
-    Holder.Size = UDim2.new(1, -10, 0, 50)
-    Holder.BackgroundTransparency = 1
-    Holder.Parent = ScrollingFrame
+	local Holder = Instance.new("Frame")
+	Holder.Size = UDim2.new(1, -10, 0, 50)
+	Holder.BackgroundTransparency = 1
+	Holder.Parent = ScrollingFrame
 
-    local Button = Instance.new("TextButton")
-    Button.Size = UDim2.new(0.6, -5, 1, 0)
-    Button.Position = UDim2.new(0, 0, 0, 0)
-    Button.BackgroundColor3 = Color3.fromRGB(90,90,90)
-    Button.TextColor3 = Color3.new(1,1,1)
-    Button.TextSize = 16
-    Button.TextWrapped = true
-    Button.Text = event.Name
-    Button.Parent = Holder
+	local Button = Instance.new("TextButton")
+	Button.Size = UDim2.new(0.6, -5, 1, 0)
+	Button.Position = UDim2.new(0, 0, 0, 0)
+	Button.BackgroundColor3 = Color3.fromRGB(90,90,90)
+	Button.TextColor3 = Color3.new(1,1,1)
+	Button.TextSize = 16
+	Button.TextWrapped = true
+	Button.Text = event.Name
+	Button.Parent = Holder
 
-    local Input = Instance.new("TextBox")
-    Input.Size = UDim2.new(0.4, -5, 1, 0)
-    Input.Position = UDim2.new(0.6, 5, 0, 0)
-    Input.BackgroundColor3 = Color3.fromRGB(70,70,70)
-    Input.TextColor3 = Color3.new(1,1,1)
-    Input.PlaceholderText = "Parameter (optional)"
-    Input.Text = ""
-    Input.ClearTextOnFocus = false
-    Input.Parent = Holder
+	local Input = Instance.new("TextBox")
+	Input.Size = UDim2.new(0.4, -5, 1, 0)
+	Input.Position = UDim2.new(0.6, 5, 0, 0)
+	Input.BackgroundColor3 = Color3.fromRGB(70,70,70)
+	Input.TextColor3 = Color3.new(1,1,1)
+	Input.PlaceholderText = "Parameter (optional)"
+	Input.Text = ""
+	Input.ClearTextOnFocus = false
+	Input.Parent = Holder
 
-    Button.MouseButton1Click:Connect(function()
-        local text = Input.Text
-        local args = nil
+	Button.MouseButton1Click:Connect(function()
+		local text = Input.Text
+		local args = nil
 
-        -- Parameter interpretieren
-        if text ~= "" then
-            if tonumber(text) then
-                args = tonumber(text)
-            elseif text == "true" then
-                args = true
-            elseif text == "false" then
-                args = false
-            else
-                args = text
-            end
-        end
+		-- Parameter automatisch erkennen
+		if text ~= "" then
+			if tonumber(text) then
+				args = tonumber(text)
+			elseif text:lower() == "true" then
+				args = true
+			elseif text:lower() == "false" then
+				args = false
+			else
+				args = text
+			end
+		end
 
-        -- Event sicher starten
-        if event and event:IsA("RemoteEvent") then
-            local success, err = pcall(function()
-                if args ~= nil then
-                    event:FireServer(args)
-                else
-                    event:FireServer()
-                end
-            end)
+		if event and event:IsA("RemoteEvent") then
+			local success, err = pcall(function()
+				if args ~= nil then
+					event:FireServer(args)
+				else
+					event:FireServer()
+				end
+			end)
 
-            if success then
-                print("✅ Event gestartet:", event:GetFullName(), args or "ohne Parameter")
-            else
-                warn("❌ Fehler bei Event:", event:GetFullName(), err)
-            end
-        else
-            warn("⚠️ Ungültiges RemoteEvent:", tostring(event))
-        end
-    end)
+			if success then
+				print("✅ Event gestartet:", event:GetFullName(), args or "ohne Parameter")
+			else
+				warn("❌ Fehler bei Event:", event:GetFullName(), err)
+			end
+		else
+			warn("⚠️ Ungültiges RemoteEvent:", tostring(event))
+		end
+	end)
 end
 
--- Alle Events suchen
+-- Alle RemoteEvents aus ReplicatedStorage scannen
 local function ScanForEvents(parent)
-    for _, obj in pairs(parent:GetDescendants()) do
-        if obj:IsA("RemoteEvent") then
-            CreateEventButton(obj)
-        end
-    end
+	for _, obj in pairs(parent:GetDescendants()) do
+		if obj:IsA("RemoteEvent") then
+			CreateEventButton(obj)
+		end
+	end
 end
 
 ScanForEvents(ReplicatedStorage)
 
 -- CanvasSize automatisch anpassen
 UIListLayout.Changed:Connect(function()
-    ScrollingFrame.CanvasSize = UDim2.new(0,0,0,UIListLayout.AbsoluteContentSize.Y)
+	ScrollingFrame.CanvasSize = UDim2.new(0,0,0,UIListLayout.AbsoluteContentSize.Y)
 end)
