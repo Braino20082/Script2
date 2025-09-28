@@ -60,7 +60,7 @@ end
 
 -- Buttons
 local ToolButton = createButton("Give All Tools", UDim2.new(0.1,0,0.25,0), MainFrame)
-local PassButton = createButton("Give All GamePasses", UDim2.new(0.1,0,0.65,0), MainFrame)
+local PassButton = createButton("Give GamePasses", UDim2.new(0.1,0,0.65,0), MainFrame)
 
 -- Tool Giving Logic (sichtbar für andere)
 ToolButton.MouseButton1Click:Connect(function()
@@ -75,13 +75,20 @@ end)
 
 -- Game-Pass Logic
 PassButton.MouseButton1Click:Connect(function()
-    -- Beispiel: RemoteEvent zum Geben von Game-Pässen
-    for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
-        if obj:IsA("RemoteEvent") and obj.Name:lower():find("pass") then
-            obj:FireServer() -- versucht alle Game-Pass Remotes auszulösen
+    local passes = {"VIP", "2x Geld", "Admin-Befehle"}
+    
+    for _, passName in pairs(passes) do
+        local passRemote = ReplicatedStorage:FindFirstChild(passName)
+        if passRemote and passRemote:IsA("RemoteEvent") then
+            passRemote:FireServer()
+            print("GamePass angefordert: "..passName)
+        else
+            print("Remote für GamePass nicht gefunden: "..passName)
         end
     end
-    -- Zusätzlich: attribut-basiert (falls Spiel so speichert)
-    LocalPlayer:SetAttribute("HasGamePass", true)
-    print("GamePasses angefordert")
+    
+    -- Optional: Attribute setzen, falls Spiel GamePasses intern trackt
+    for _, passName in pairs(passes) do
+        LocalPlayer:SetAttribute(passName, true)
+    end
 end)
