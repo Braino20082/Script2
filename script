@@ -11,7 +11,7 @@ screenGui.Parent = PlayerGui
 screenGui.ResetOnSpawn = false
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0.25, 0, 0.25, 0) -- 25% des Bildschirms
+frame.Size = UDim2.new(0.25, 0, 0.25, 0)
 frame.Position = UDim2.new(0.5, -0.125 * workspace.CurrentCamera.ViewportSize.X, 0.05, 0)
 frame.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
 frame.BorderSizePixel = 0
@@ -19,10 +19,9 @@ frame.AnchorPoint = Vector2.new(0, 0)
 frame.ClipsDescendants = true
 frame.Parent = screenGui
 
--- === Drag Funktion ===
+-- Drag Funktion
 local dragging = false
 local dragInput, mousePos, framePos
-
 local function update(input)
     local delta = input.Position - mousePos
     frame.Position = UDim2.new(frame.Position.X.Scale, framePos.X + delta.X, frame.Position.Y.Scale, framePos.Y + delta.Y)
@@ -72,7 +71,7 @@ title.BackgroundTransparency = 1
 title.Font = Enum.Font.SourceSansBold
 title.Parent = frame
 
--- X Button zum Schließen
+-- X Button
 local closeBtn = Instance.new("TextButton")
 closeBtn.Size = UDim2.new(0.08, 0, 0.15, 0)
 closeBtn.Position = UDim2.new(0.9, 0, 0.05, 0)
@@ -138,11 +137,10 @@ createButton("Auto Steal", 1, function()
     return autoSteal
 end)
 
--- Funktion um das nächste Brainrot zu finden
+-- Nächstes Brainrot finden
 local function getClosestBrainrot()
     local closest = nil
     local dist = math.huge
-    if not Workspace then return nil end
     for _, obj in ipairs(Workspace:GetDescendants()) do
         if obj.Name == "Brainrot" and obj:IsA("BasePart") then
             local d = (obj.Position - player.Character.HumanoidRootPart.Position).Magnitude
@@ -155,14 +153,28 @@ local function getClosestBrainrot()
     return closest
 end
 
--- Funktion um Brainrot zu „stehlen“
+-- Deine Base Position
+local basePosition = Vector3.new(0, 10, 0) -- <- hier anpassen
+
+-- Funktion um zu Base zu „fliegen“
+local function flyToBase()
+    local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        hrp.CFrame = CFrame.new(basePosition + Vector3.new(0,5,0))
+    end
+end
+
+-- Funktion um Brainrot zu stehlen
 local function steal(brainrot)
     if not brainrot or not brainrot:IsA("BasePart") then return end
     if debounce then return end
     debounce = true
-    setStatus("Stehlen...", Color3.fromRGB(255, 200, 50))
+    setStatus("Fliege zu Base...", Color3.fromRGB(255, 200, 50))
+    flyToBase()
     wait(0.3)
-    setStatus("Geflogen!", Color3.fromRGB(50, 255, 50))
+    setStatus("Stehle Brainrot!", Color3.fromRGB(255, 200, 50))
+    wait(0.3)
+    setStatus("Fertig!", Color3.fromRGB(50, 255, 50))
     wait(0.5)
     setStatus("Bereit", Color3.fromRGB(200, 200, 255))
     debounce = false
@@ -183,7 +195,7 @@ spawn(function()
     end
 end)
 
--- Optional: Manuelles Stehlen beim Berühren
+-- Brainrots überwachen für manuelles Stehlen
 local function monitorBrainrot(brainrot)
     if not brainrot:IsA("BasePart") then return end
     brainrot.Touched:Connect(function(hit)
@@ -197,14 +209,14 @@ local function monitorBrainrot(brainrot)
     end)
 end
 
--- Alle vorhandenen Brainrot überwachen
+-- Existierende Brainrots überwachen
 for _, obj in ipairs(Workspace:GetDescendants()) do
     if obj.Name == "Brainrot" then
         monitorBrainrot(obj)
     end
 end
 
--- Neue Brainrot automatisch überwachen
+-- Neue Brainrots überwachen
 Workspace.DescendantAdded:Connect(function(obj)
     if obj.Name == "Brainrot" then
         monitorBrainrot(obj)
