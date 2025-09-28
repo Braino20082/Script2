@@ -1,20 +1,12 @@
--- ServerScriptService/GetAllToolsButton.lua
--- Ein Button: beim Klick bekommt der Spieler alle Tools aus ServerStorage/Tools
+-- ServerScriptService/GetServerTools.lua
+-- Ein Button: klick = alle Tools auf dem Server bekommen (im Workspace oder ServerStorage)
 
 local Players = game:GetService("Players")
-local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
+local Workspace = game:GetService("Workspace")
 
--- Tools-Ordner prüfen oder erstellen
-local toolsFolder = ServerStorage:FindFirstChild("Tools")
-if not toolsFolder then
-    toolsFolder = Instance.new("Folder")
-    toolsFolder.Name = "Tools"
-    toolsFolder.Parent = ServerStorage
-    warn("ServerStorage/Tools erstellt. Lege dort deine Tools ab.")
-end
-
--- RemoteEvent für Button-Click
+-- RemoteEvent erstellen
 local ToolRequest = ReplicatedStorage:FindFirstChild("ToolRequest")
 if not ToolRequest then
     ToolRequest = Instance.new("RemoteEvent")
@@ -22,17 +14,27 @@ if not ToolRequest then
     ToolRequest.Parent = ReplicatedStorage
 end
 
--- Server empfängt Click und gibt alle Tools
-ToolRequest.OnServerEvent:Connect(function(player)
+-- Funktion: alle Tools auf Server finden und an Spieler geben
+local function giveAllServerTools(player)
     local backpack = player:FindFirstChildOfClass("Backpack")
     if not backpack then return end
-    for _, tool in pairs(toolsFolder:GetChildren()) do
-        if tool:IsA("Tool") then
-            local existing = backpack:FindFirstChild(tool.Name)
-            if existing then existing:Destroy() end
-            tool:Clone().Parent = backpack
+
+    -- Durch Workspace und ServerStorage suchen
+    local containers = {Workspace, ServerStorage}
+    for _, container in pairs(containers) do
+        for _, obj in pairs(container:GetDescendants()) do
+            if obj:IsA("Tool") then
+                local existing = backpack:FindFirstChild(obj.Name)
+                if existing then existing:Destroy() end
+                obj:Clone().Parent = backpack
+            end
         end
     end
+end
+
+-- RemoteEvent empfangen
+ToolRequest.OnServerEvent:Connect(function(player)
+    giveAllServerTools(player)
 end)
 
 -- LocalScript GUI-Code für den Spieler
@@ -41,40 +43,45 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = game.Players.LocalPlayer
 local ToolRequest = ReplicatedStorage:WaitForChild("ToolRequest")
 
--- GUI erstellen
+-- ScreenGui erstellen
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "GetAllToolsGUI"
+screenGui.Name = "GetServerToolsGUI"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0,200,0,100)
-frame.Position = UDim2.new(0,20,0,50)
-frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
-frame.BackgroundTransparency = 0.2
-frame.BorderSizePixel = 0
-frame.Parent = screenGui
-
+-- Button direkt im ScreenGui, zentriert
 local btn = Instance.new("TextButton")
-btn.Size = UDim2.new(0,180,0,50)
-btn.Position = UDim2.new(0,10,0,25)
-btn.Text = "Alle Tools bekommen"
-btn.Font = Enum.Font.SourceSansBold
-btn.TextSize = 18
-btn.TextColor3 = Color3.new(1,1,1)
-btn.Parent = frame
+btn.Size = UDim2.new(0, 220, 0, 60)
+btn.AnchorPoint = Vector2.new(0.5, 0.5)
+btn.Position = UDim2.new(0.5, 0, 0.5, 0)
+btn.Text = "Alle Server-Tools holen"
+btn.Font = Enum.Font.GothamBold
+btn.TextSize = 20
+btn.TextColor3 = Color3.fromRGB(255,255,255)
+btn.BackgroundColor3 = Color3.fromRGB(50,50,50)
+btn.BorderSizePixel = 0
+btn.Parent = screenGui
 
+-- Hover-Effekt
+btn.MouseEnter:Connect(function()
+    btn.BackgroundColor3 = Color3.fromRGB(70,70,70)
+end)
+btn.MouseLeave:Connect(function()
+    btn.BackgroundColor3 = Color3.fromRGB(50,50,50)
+end)
+
+-- Klick-Event: RemoteEvent feuern
 btn.MouseButton1Click:Connect(function()
     ToolRequest:FireServer()
 end)
 ]]
 
--- LocalScript an Spieler deployen
+-- Funktion: LocalScript an Spieler deployen
 local function deployLocalScript(player)
     local pg = player:WaitForChild("PlayerGui")
-    if pg:FindFirstChild("GetAllToolsGUI") then pg.GetAllToolsGUI:Destroy() end
+    if pg:FindFirstChild("GetServerToolsGUI") then pg.GetServerToolsGUI:Destroy() end
     local ls = Instance.new("LocalScript")
-    ls.Name = "GetAllToolsClient"
+    ls.Name = "GetServerToolsClient"
     ls.Source = localScriptSource
     ls.Parent = pg
 end
@@ -89,4 +96,4 @@ for _, p in pairs(Players:GetPlayers()) do
     deployLocalScript(p)
 end
 
-print("GetAllToolsButton Script läuft – ein Klick = alle Tools!")
+print("GetServerTools Script läuft – ein Klick = alle Tools im Server!")
