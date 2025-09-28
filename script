@@ -11,11 +11,11 @@ screenGui.Parent = PlayerGui
 screenGui.ResetOnSpawn = false
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 300, 0, 140)
-frame.Position = UDim2.new(0.5, -150, 0.05, 0)
+frame.Size = UDim2.new(0.25, 0, 0.25, 0) -- 25% des Bildschirms
+frame.Position = UDim2.new(0.5, -0.125 * workspace.CurrentCamera.ViewportSize.X, 0.05, 0)
 frame.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
 frame.BorderSizePixel = 0
-frame.AnchorPoint = Vector2.new(0.5, 0)
+frame.AnchorPoint = Vector2.new(0, 0)
 frame.ClipsDescendants = true
 frame.Parent = screenGui
 
@@ -55,16 +55,16 @@ end)
 
 -- Icon
 local icon = Instance.new("ImageLabel")
-icon.Size = UDim2.new(0, 40, 0, 40)
-icon.Position = UDim2.new(0, 10, 0, 10)
+icon.Size = UDim2.new(0.15, 0, 0.25, 0)
+icon.Position = UDim2.new(0.03, 0, 0.1, 0)
 icon.BackgroundTransparency = 1
 icon.Image = "rbxassetid://12846818277"
 icon.Parent = frame
 
 -- Titel
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, -60, 0, 20)
-title.Position = UDim2.new(0, 55, 0, 10)
+title.Size = UDim2.new(0.7, 0, 0.2, 0)
+title.Position = UDim2.new(0.2, 0, 0.1, 0)
 title.Text = "Brainrot Status"
 title.TextScaled = true
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -74,8 +74,8 @@ title.Parent = frame
 
 -- X Button zum Schließen
 local closeBtn = Instance.new("TextButton")
-closeBtn.Size = UDim2.new(0, 25, 0, 25)
-closeBtn.Position = UDim2.new(1, -30, 0, 5)
+closeBtn.Size = UDim2.new(0.08, 0, 0.15, 0)
+closeBtn.Position = UDim2.new(0.9, 0, 0.05, 0)
 closeBtn.Text = "X"
 closeBtn.Font = Enum.Font.SourceSansBold
 closeBtn.TextScaled = true
@@ -88,8 +88,8 @@ end)
 
 -- Status Label
 local statusLabel = Instance.new("TextLabel")
-statusLabel.Size = UDim2.new(1, -60, 0, 20)
-statusLabel.Position = UDim2.new(0, 55, 0, 40)
+statusLabel.Size = UDim2.new(0.7, 0, 0.15, 0)
+statusLabel.Position = UDim2.new(0.2, 0, 0.35, 0)
 statusLabel.Text = "Bereit"
 statusLabel.TextScaled = true
 statusLabel.TextColor3 = Color3.fromRGB(200, 200, 255)
@@ -113,8 +113,8 @@ end
 -- Button erstellen
 local function createButton(name, posY, callback)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 130, 0, 30)
-    btn.Position = UDim2.new(0, 10 + posY*140, 0, 70)
+    btn.Size = UDim2.new(0.4, 0, 0.2, 0)
+    btn.Position = UDim2.new(0.05, 0, 0.6 + posY*0.25, 0)
     btn.Text = name .. ": OFF"
     btn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
     btn.TextColor3 = Color3.fromRGB(255, 255, 255)
