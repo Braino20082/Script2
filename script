@@ -1,16 +1,140 @@
--- Roblox Tool Giver GUI Script - Findet alle Tools im Spiel
--- Dieses Script scannt das Spiel nach verfügbaren Tools
+-- SERVER SCRIPT - Füge dieses Script in ServerScriptService ein
+-- Dieses Script läuft auf dem Server und verwaltet die Tools
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
+
+-- Remote Events erstellen für Client-Server Kommunikation
+local remoteEvents = Instance.new("Folder")
+remoteEvents.Name = "ToolGiverRemotes"
+remoteEvents.Parent = ReplicatedStorage
+
+local getToolsRemote = Instance.new("RemoteFunction")
+getToolsRemote.Name = "GetToolsRemote"
+getToolsRemote.Parent = remoteEvents
+
+local giveToolRemote = Instance.new("RemoteEvent")
+giveToolRemote.Name = "GiveToolRemote"
+giveToolRemote.Parent = remoteEvents
+
+-- Server-seitige Tool-Datenbank
+local serverTools = {}
+
+-- Funktion zum Scannen aller Tools auf dem Server
+local function scanServerTools()
+    serverTools = {}
+    
+    local function findToolsInContainer(container, containerName)
+        local function searchRecursive(obj)
+            if obj:IsA("Tool") then
+                table.insert(serverTools, {
+                    name = obj.Name,
+                    path = containerName,
+                    originalTool = obj
+                })
+            end
+            
+            for _, child in pairs(obj:GetChildren()) do
+                searchRecursive(child)
+            end
+        end
+        
+        pcall(function()
+            searchRecursive(container)
+        end)
+    end
+    
+    -- Scanne Server-Container
+    findToolsInContainer(ServerStorage, "ServerStorage")
+    findToolsInContainer(ReplicatedStorage, "ReplicatedStorage")
+    findToolsInContainer(Lighting, "Lighting")
+    findToolsInContainer(Workspace, "Workspace")
+    
+    -- Entferne Duplikate
+    local uniqueTools = {}
+    local seen = {}
+    
+    for _, toolData in pairs(serverTools) do
+        local key = toolData.name .. "|" .. toolData.path
+        if not seen[key] then
+            seen[key] = true
+            table.insert(uniqueTools, toolData)
+        end
+    end
+    
+    serverTools = uniqueTools
+    
+    -- Sortiere Tools
+    table.sort(serverTools, function(a, b)
+        return a.name < b.name
+    end)
+    
+    print("Server gescannt: " .. #serverTools .. " Tools gefunden")
+end
+
+-- Remote Function Handler - sendet Tool-Liste an Client
+getToolsRemote.OnServerInvoke = function(player)
+    scanServerTools() -- Scanne bei jeder Anfrage neu
+    
+    local toolList = {}
+    for _, toolData in pairs(serverTools) do
+        table.insert(toolList, {
+            name = toolData.name,
+            path = toolData.path
+        })
+    end
+    
+    return toolList
+end
+
+-- Remote Event Handler - gibt Tool an Spieler
+giveToolRemote.OnServerEvent:Connect(function(player, toolName)
+    -- Finde das Tool in der Server-Datenbank
+    local toolToGive = nil
+    
+    for _, toolData in pairs(serverTools) do
+        if toolData.name == toolName then
+            toolToGive = toolData.originalTool
+            break
+        end
+    end
+    
+    if toolToGive and toolToGive.Parent then
+        -- Clone das Tool und gib es dem Spieler
+        local clonedTool = toolToGive:Clone()
+        clonedTool.Parent = player.Backpack
+        
+        print(player.Name .. " hat Tool erhalten: " .. toolName)
+    else
+        warn("Tool nicht gefunden: " .. toolName)
+    end
+end)
+
+-- Scanne Tools beim Start
+scanServerTools()
+
+print("Tool Giver Server geladen!")
+
+--[[
+CLIENT SCRIPT - Füge dieses Script in StarterPlayer > StarterPlayerScripts ein
+Dieses Script läuft bei jedem Spieler und erstellt die GUI
+]]
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
+
+-- Warte auf Remote Events
+local remoteEvents = ReplicatedStorage:WaitForChild("ToolGiverRemotes")
+local getToolsRemote = remoteEvents:WaitForChild("GetToolsRemote")
+local giveToolRemote = remoteEvents:WaitForChild("GiveToolRemote")
 
 -- GUI Erstellung
 local screenGui = Instance.new("ScreenGui")
@@ -27,12 +151,12 @@ mainFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
 mainFrame.BorderSizePixel = 0
 mainFrame.Parent = screenGui
 
--- Abgerundete Ecken für den Hauptframe
+-- Abgerundete Ecken
 local mainCorner = Instance.new("UICorner")
 mainCorner.CornerRadius = UDim.new(0, 15)
 mainCorner.Parent = mainFrame
 
--- Schatten-Effekt
+-- Schatten
 local shadow = Instance.new("Frame")
 shadow.Name = "Shadow"
 shadow.Size = UDim2.new(1, 6, 1, 6)
@@ -46,11 +170,10 @@ local shadowCorner = Instance.new("UICorner")
 shadowCorner.CornerRadius = UDim.new(0, 15)
 shadowCorner.Parent = shadow
 
--- Titel
+-- Titel Bar
 local titleBar = Instance.new("Frame")
 titleBar.Name = "TitleBar"
 titleBar.Size = UDim2.new(1, 0, 0, 60)
-titleBar.Position = UDim2.new(0, 0, 0, 0)
 titleBar.BackgroundColor3 = Color3.fromRGB(65, 105, 255)
 titleBar.BorderSizePixel = 0
 titleBar.Parent = mainFrame
@@ -61,42 +184,24 @@ titleCorner.Parent = titleBar
 
 local titleFix = Instance.new("Frame")
 titleFix.Size = UDim2.new(1, 0, 0, 15)
-titleFix.Position = UDim2.new(0, 1, 1, -15)
+titleFix.Position = UDim2.new(0, 0, 1, -15)
 titleFix.BackgroundColor3 = Color3.fromRGB(65, 105, 255)
 titleFix.BorderSizePixel = 0
 titleFix.Parent = titleBar
 
+-- Titel Text
 local titleText = Instance.new("TextLabel")
-titleText.Name = "TitleText"
 titleText.Size = UDim2.new(1, -100, 1, 0)
 titleText.Position = UDim2.new(0, 10, 0, 0)
 titleText.BackgroundTransparency = 1
-titleText.Text = "🔧 Game Tool Giver"
+titleText.Text = "🌐 Server Tool Giver"
 titleText.TextColor3 = Color3.fromRGB(255, 255, 255)
 titleText.TextScaled = true
 titleText.Font = Enum.Font.GothamBold
 titleText.Parent = titleBar
 
--- Schließen Button
-local closeButton = Instance.new("TextButton")
-closeButton.Name = "CloseButton"
-closeButton.Size = UDim2.new(0, 40, 0, 40)
-closeButton.Position = UDim2.new(1, -50, 0, 10)
-closeButton.BackgroundColor3 = Color3.fromRGB(255, 85, 85)
-closeButton.Text = "✕"
-closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-closeButton.TextScaled = true
-closeButton.Font = Enum.Font.GothamBold
-closeButton.BorderSizePixel = 0
-closeButton.Parent = titleBar
-
-local closeCorner = Instance.new("UICorner")
-closeCorner.CornerRadius = UDim.new(0, 8)
-closeCorner.Parent = closeButton
-
--- Refresh Button
+-- Buttons
 local refreshButton = Instance.new("TextButton")
-refreshButton.Name = "RefreshButton"
 refreshButton.Size = UDim2.new(0, 40, 0, 40)
 refreshButton.Position = UDim2.new(1, -95, 0, 10)
 refreshButton.BackgroundColor3 = Color3.fromRGB(85, 255, 85)
@@ -111,21 +216,34 @@ local refreshCorner = Instance.new("UICorner")
 refreshCorner.CornerRadius = UDim.new(0, 8)
 refreshCorner.Parent = refreshButton
 
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2.new(0, 40, 0, 40)
+closeButton.Position = UDim2.new(1, -50, 0, 10)
+closeButton.BackgroundColor3 = Color3.fromRGB(255, 85, 85)
+closeButton.Text = "✕"
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.TextScaled = true
+closeButton.Font = Enum.Font.GothamBold
+closeButton.BorderSizePixel = 0
+closeButton.Parent = titleBar
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 8)
+closeCorner.Parent = closeButton
+
 -- Status Label
 local statusLabel = Instance.new("TextLabel")
-statusLabel.Name = "StatusLabel"
 statusLabel.Size = UDim2.new(1, -20, 0, 25)
 statusLabel.Position = UDim2.new(0, 10, 0, 65)
 statusLabel.BackgroundTransparency = 1
-statusLabel.Text = "Scanne nach Tools..."
+statusLabel.Text = "Lade Server-Tools..."
 statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 statusLabel.TextScaled = true
 statusLabel.Font = Enum.Font.Gotham
 statusLabel.Parent = mainFrame
 
--- Scroll Frame für Tools
+-- Scroll Frame
 local scrollFrame = Instance.new("ScrollingFrame")
-scrollFrame.Name = "ToolScrollFrame"
 scrollFrame.Size = UDim2.new(1, -20, 1, -170)
 scrollFrame.Position = UDim2.new(0, 10, 0, 95)
 scrollFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
@@ -138,7 +256,7 @@ local scrollCorner = Instance.new("UICorner")
 scrollCorner.CornerRadius = UDim.new(0, 10)
 scrollCorner.Parent = scrollFrame
 
--- Layout für Tools
+-- Layout
 local listLayout = Instance.new("UIListLayout")
 listLayout.SortOrder = Enum.SortOrder.Name
 listLayout.Padding = UDim.new(0, 5)
@@ -151,9 +269,8 @@ listPadding.PaddingLeft = UDim.new(0, 10)
 listPadding.PaddingRight = UDim.new(0, 10)
 listPadding.Parent = scrollFrame
 
--- Such-Eingabefeld
+-- Search Box
 local searchFrame = Instance.new("Frame")
-searchFrame.Name = "SearchFrame"
 searchFrame.Size = UDim2.new(1, -20, 0, 40)
 searchFrame.Position = UDim2.new(0, 10, 1, -50)
 searchFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
@@ -165,109 +282,22 @@ searchCorner.CornerRadius = UDim.new(0, 8)
 searchCorner.Parent = searchFrame
 
 local searchBox = Instance.new("TextBox")
-searchBox.Name = "SearchBox"
 searchBox.Size = UDim2.new(1, -20, 1, 0)
 searchBox.Position = UDim2.new(0, 10, 0, 0)
 searchBox.BackgroundTransparency = 1
 searchBox.Text = ""
-searchBox.PlaceholderText = "🔍 Tool suchen..."
+searchBox.PlaceholderText = "🔍 Server-Tool suchen..."
 searchBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 searchBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
 searchBox.TextScaled = true
 searchBox.Font = Enum.Font.Gotham
 searchBox.Parent = searchFrame
 
--- Globale Variablen
-local foundTools = {}
+-- Variablen
+local serverTools = {}
 local toolButtons = {}
 
--- Funktion zum rekursiven Suchen nach Tools
-local function findToolsInContainer(container, containerName)
-    local tools = {}
-    
-    local function searchRecursive(obj)
-        if obj:IsA("Tool") then
-            table.insert(tools, {
-                tool = obj,
-                path = containerName,
-                name = obj.Name
-            })
-        end
-        
-        for _, child in pairs(obj:GetChildren()) do
-            searchRecursive(child)
-        end
-    end
-    
-    searchRecursive(container)
-    return tools
-end
-
--- Funktion zum Scannen aller Tools im Spiel
-local function scanForTools()
-    foundTools = {}
-    statusLabel.Text = "Scanne nach Tools..."
-    
-    -- Lösche alle alten Buttons
-    for _, button in pairs(toolButtons) do
-        if button and button.Parent then
-            button:Destroy()
-        end
-    end
-    toolButtons = {}
-    
-    wait(0.1) -- Kurze Pause für UI-Update
-    
-    -- Scanne verschiedene Services
-    local containersToScan = {
-        {container = ReplicatedStorage, name = "ReplicatedStorage"},
-        {container = Lighting, name = "Lighting"},
-        {container = Workspace, name = "Workspace"}
-    }
-    
-    -- Versuche auch ServerStorage (funktioniert nur mit entsprechenden Rechten)
-    pcall(function()
-        table.insert(containersToScan, {container = ServerStorage, name = "ServerStorage"})
-    end)
-    
-    -- Scanne alle Container
-    for _, containerData in pairs(containersToScan) do
-        local tools = findToolsInContainer(containerData.container, containerData.name)
-        for _, toolData in pairs(tools) do
-            -- Verhindere Duplikate
-            local isDuplicate = false
-            for _, existingTool in pairs(foundTools) do
-                if existingTool.name == toolData.name and existingTool.path == toolData.path then
-                    isDuplicate = true
-                    break
-                end
-            end
-            
-            if not isDuplicate then
-                table.insert(foundTools, toolData)
-            end
-        end
-    end
-    
-    -- Sortiere Tools nach Namen
-    table.sort(foundTools, function(a, b)
-        return a.name < b.name
-    end)
-    
-    -- Update Status
-    if #foundTools == 0 then
-        statusLabel.Text = "❌ Keine Tools gefunden"
-        statusLabel.TextColor3 = Color3.fromRGB(255, 85, 85)
-    else
-        statusLabel.Text = "✅ " .. #foundTools .. " Tools gefunden"
-        statusLabel.TextColor3 = Color3.fromRGB(85, 255, 85)
-    end
-    
-    -- Erstelle Buttons für gefundene Tools
-    createToolButtons()
-end
-
--- Funktion zum Erstellen eines Tool-Buttons
+-- Tool Button erstellen
 local function createToolButton(toolData)
     local toolButton = Instance.new("TextButton")
     toolButton.Name = toolData.name .. "Button"
@@ -280,9 +310,8 @@ local function createToolButton(toolData)
     buttonCorner.CornerRadius = UDim.new(0, 8)
     buttonCorner.Parent = toolButton
     
-    -- Tool Name Label
+    -- Labels
     local nameLabel = Instance.new("TextLabel")
-    nameLabel.Name = "NameLabel"
     nameLabel.Size = UDim2.new(1, -60, 0.6, 0)
     nameLabel.Position = UDim2.new(0, 10, 0, 0)
     nameLabel.BackgroundTransparency = 1
@@ -293,13 +322,11 @@ local function createToolButton(toolData)
     nameLabel.Font = Enum.Font.GothamBold
     nameLabel.Parent = toolButton
     
-    -- Path Label
     local pathLabel = Instance.new("TextLabel")
-    pathLabel.Name = "PathLabel"
     pathLabel.Size = UDim2.new(1, -60, 0.4, 0)
     pathLabel.Position = UDim2.new(0, 10, 0.6, 0)
     pathLabel.BackgroundTransparency = 1
-    pathLabel.Text = "📁 " .. toolData.path
+    pathLabel.Text = "🌐 Server: " .. toolData.path
     pathLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
     pathLabel.TextXAlignment = Enum.TextXAlignment.Left
     pathLabel.TextScaled = true
@@ -308,7 +335,6 @@ local function createToolButton(toolData)
     
     -- Get Button
     local getButton = Instance.new("TextButton")
-    getButton.Name = "GetButton"
     getButton.Size = UDim2.new(0, 45, 0, 30)
     getButton.Position = UDim2.new(1, -55, 0.5, -15)
     getButton.BackgroundColor3 = Color3.fromRGB(65, 105, 255)
@@ -323,75 +349,81 @@ local function createToolButton(toolData)
     getCorner.CornerRadius = UDim.new(0, 6)
     getCorner.Parent = getButton
     
-    -- Hover-Effekte
+    -- Animations und Events
     local originalColor = toolButton.BackgroundColor3
     
     toolButton.MouseEnter:Connect(function()
-        local tween = TweenService:Create(toolButton, 
-            TweenInfo.new(0.2, Enum.EasingStyle.Quad), 
-            {BackgroundColor3 = Color3.fromRGB(65, 65, 75)}
-        )
-        tween:Play()
+        TweenService:Create(toolButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(65, 65, 75)}):Play()
     end)
     
     toolButton.MouseLeave:Connect(function()
-        local tween = TweenService:Create(toolButton, 
-            TweenInfo.new(0.2, Enum.EasingStyle.Quad), 
-            {BackgroundColor3 = originalColor}
-        )
-        tween:Play()
+        TweenService:Create(toolButton, TweenInfo.new(0.2), {BackgroundColor3 = originalColor}):Play()
     end)
     
-    -- Get Button Hover
-    getButton.MouseEnter:Connect(function()
-        local tween = TweenService:Create(getButton, 
-            TweenInfo.new(0.2, Enum.EasingStyle.Quad), 
-            {BackgroundColor3 = Color3.fromRGB(85, 125, 255)}
-        )
-        tween:Play()
-    end)
-    
-    getButton.MouseLeave:Connect(function()
-        local tween = TweenService:Create(getButton, 
-            TweenInfo.new(0.2, Enum.EasingStyle.Quad), 
-            {BackgroundColor3 = Color3.fromRGB(65, 105, 255)}
-        )
-        tween:Play()
-    end)
-    
-    -- Tool geben Funktion
-    local function giveTool()
-        pcall(function()
-            local clonedTool = toolData.tool:Clone()
-            clonedTool.Parent = player.Backpack
-            
-            -- Erfolgs-Animation
-            getButton.Text = "✓"
-            getButton.BackgroundColor3 = Color3.fromRGB(85, 255, 85)
-            
-            wait(1)
-            
-            getButton.Text = "GET"
-            getButton.BackgroundColor3 = Color3.fromRGB(65, 105, 255)
-            
-            print("Tool erhalten: " .. toolData.name .. " von " .. toolData.path)
-        end)
+    -- Tool anfordern
+    local function requestTool()
+        getButton.Text = "..."
+        getButton.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
+        
+        -- Sende Anfrage an Server
+        giveToolRemote:FireServer(toolData.name)
+        
+        wait(0.5)
+        
+        getButton.Text = "✓"
+        getButton.BackgroundColor3 = Color3.fromRGB(85, 255, 85)
+        
+        wait(1)
+        
+        getButton.Text = "GET"
+        getButton.BackgroundColor3 = Color3.fromRGB(65, 105, 255)
     end
     
-    getButton.MouseButton1Click:Connect(giveTool)
-    toolButton.MouseButton1Click:Connect(giveTool)
+    getButton.MouseButton1Click:Connect(requestTool)
+    toolButton.MouseButton1Click:Connect(requestTool)
     
     return toolButton
 end
 
--- Funktion zum Erstellen aller Tool-Buttons
-function createToolButtons()
-    for _, toolData in pairs(foundTools) do
-        toolButtons[toolData.name] = createToolButton(toolData)
-    end
+-- Tools vom Server laden
+local function loadServerTools()
+    statusLabel.Text = "Lade Server-Tools..."
+    statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     
-    -- Canvas-Größe anpassen
-    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, #foundTools * 55 + 20)
+    -- Lösche alte Buttons
+    for _, button in pairs(toolButtons) do
+        if button and button.Parent then
+            button:Destroy()
+        end
+    end
+    toolButtons = {}
+    
+    -- Anfrage an Server
+    local success, tools = pcall(function()
+        return getToolsRemote:InvokeServer()
+    end)
+    
+    if success and tools then
+        serverTools = tools
+        
+        if #serverTools == 0 then
+            statusLabel.Text = "❌ Keine Tools auf Server gefunden"
+            statusLabel.TextColor3 = Color3.fromRGB(255, 85, 85)
+        else
+            statusLabel.Text = "✅ " .. #serverTools .. " Server-Tools geladen"
+            statusLabel.TextColor3 = Color3.fromRGB(85, 255, 85)
+            
+            -- Erstelle Buttons
+            for _, toolData in pairs(serverTools) do
+                toolButtons[toolData.name] = createToolButton(toolData)
+            end
+            
+            scrollFrame.CanvasSize = UDim2.new(0, 0, 0, #serverTools * 55 + 20)
+        end
+    else
+        statusLabel.Text = "❌ Fehler beim Laden der Server-Tools"
+        statusLabel.TextColor3 = Color3.fromRGB(255, 85, 85)
+    end
 end
 
 -- Such-Funktion
@@ -411,45 +443,26 @@ searchBox.Changed:Connect(function()
     scrollFrame.CanvasSize = UDim2.new(0, 0, 0, visibleCount * 55 + 20)
 end)
 
--- Button-Funktionen
+-- Button Events
 refreshButton.MouseButton1Click:Connect(function()
-    -- Dreh-Animation für Refresh-Button
-    local tween = TweenService:Create(refreshButton, 
-        TweenInfo.new(0.5, Enum.EasingStyle.Quad), 
-        {Rotation = refreshButton.Rotation + 360}
-    )
-    tween:Play()
-    
-    scanForTools()
+    TweenService:Create(refreshButton, TweenInfo.new(0.5), {Rotation = refreshButton.Rotation + 360}):Play()
+    loadServerTools()
 end)
 
 closeButton.MouseButton1Click:Connect(function()
-    local tween = TweenService:Create(mainFrame, 
-        TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), 
-        {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}
-    )
+    local tween = TweenService:Create(mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), 
+        {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)})
     tween:Play()
-    
     tween.Completed:Connect(function()
         screenGui:Destroy()
     end)
 end)
 
--- Dragging-Funktion
-local dragToggle = nil
-local dragStart = nil
-local startPos = nil
-
-local function updateInput(input)
-    local delta = input.Position - dragStart
-    local position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, 
-                              startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    mainFrame.Position = position
-end
+-- Dragging
+local dragToggle, dragStart, startPos = nil, nil, nil
 
 titleBar.InputBegan:Connect(function(input)
-    if (input.UserInputType == Enum.UserInputType.MouseButton1 or 
-        input.UserInputType == Enum.UserInputType.Touch) then
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
         dragToggle = true
         dragStart = input.Position
         startPos = mainFrame.Position
@@ -463,11 +476,10 @@ titleBar.InputBegan:Connect(function(input)
 end)
 
 UserInputService.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or 
-       input.UserInputType == Enum.UserInputType.Touch then
-        if dragToggle then
-            updateInput(input)
-        end
+    if input.UserInputType == Enum.UserInputType.MouseMovement and dragToggle then
+        local delta = input.Position - dragStart
+        mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, 
+                                      startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
 end)
 
@@ -475,15 +487,11 @@ end)
 mainFrame.Size = UDim2.new(0, 0, 0, 0)
 mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 
-local openTween = TweenService:Create(mainFrame, 
-    TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), 
-    {Size = UDim2.new(0, 450, 0, 550), Position = UDim2.new(0.5, -225, 0.5, -275)}
-)
-openTween:Play()
+TweenService:Create(mainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), 
+    {Size = UDim2.new(0, 450, 0, 550), Position = UDim2.new(0.5, -225, 0.5, -275)}):Play()
 
--- Automatischer erster Scan
-wait(0.5)
-scanForTools()
+-- Automatisch laden beim Start
+wait(1)
+loadServerTools()
 
-print("Game Tool Giver GUI geladen!")
-print("Das Script scannt automatisch nach allen verfügbaren Tools im Spiel!")
+print("Client Tool Giver GUI geladen!")
