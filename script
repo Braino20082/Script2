@@ -1,7 +1,8 @@
--- Client GUI + Status für Brainrot (StarterPlayerScripts)
+-- StarterPlayerScripts/BrainrotClient.lua
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 local PlayerGui = player:WaitForChild("PlayerGui")
+local Workspace = game:GetService("Workspace")
 
 -- === GUI erstellen ===
 local screenGui = Instance.new("ScreenGui")
@@ -10,14 +11,13 @@ screenGui.Parent = PlayerGui
 screenGui.ResetOnSpawn = false
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 300, 0, 120)
+frame.Size = UDim2.new(0, 300, 0, 140)
 frame.Position = UDim2.new(0.5, -150, 0.05, 0)
-frame.BackgroundColor3 = Color3.fromRGB(30, 30, 35) -- dunkler Grau-Hintergrund
+frame.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
 frame.BorderSizePixel = 0
-frame.BackgroundTransparency = 0.05
-frame.Parent = screenGui
 frame.AnchorPoint = Vector2.new(0.5, 0)
 frame.ClipsDescendants = true
+frame.Parent = screenGui
 
 -- Icon
 local icon = Instance.new("ImageLabel")
@@ -49,7 +49,12 @@ statusLabel.BackgroundTransparency = 1
 statusLabel.Font = Enum.Font.SourceSansBold
 statusLabel.Parent = frame
 
--- Funktion, um Status zu ändern
+-- ON/OFF Variablen
+local stealBrainrot = false
+local autoSteal = false
+local debounce = false
+
+-- Funktion um Status zu ändern
 local function setStatus(text, color)
     statusLabel.Text = text
     if color then
@@ -57,15 +62,11 @@ local function setStatus(text, color)
     end
 end
 
--- ON/OFF Variablen
-local stealBrainrot = false
-local autoSteal = false
-
--- Buttons erstellen
+-- Button erstellen
 local function createButton(name, posY, callback)
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 120, 0, 30)
-    btn.Position = UDim2.new(0, 10 + (posY * 130), 0, 70)
+    btn.Size = UDim2.new(0, 130, 0, 30)
+    btn.Position = UDim2.new(0, 10 + posY*140, 0, 70)
     btn.Text = name .. ": OFF"
     btn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
     btn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -79,20 +80,62 @@ local function createButton(name, posY, callback)
     end)
 end
 
--- Button Logik
+-- Buttons
 createButton("Steal Brainrot", 0, function()
     stealBrainrot = not stealBrainrot
     return stealBrainrot
 end)
-
 createButton("Auto Steal", 1, function()
     autoSteal = not autoSteal
     return autoSteal
 end)
 
--- Brainrot überwachen
-local Workspace = game:GetService("Workspace")
+-- Funktion um das nächste Brainrot zu finden
+local function getClosestBrainrot()
+    local closest = nil
+    local dist = math.huge
+    if not Workspace then return nil end
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj.Name == "Brainrot" and obj:IsA("BasePart") then
+            local d = (obj.Position - player.Character.HumanoidRootPart.Position).Magnitude
+            if d < dist then
+                dist = d
+                closest = obj
+            end
+        end
+    end
+    return closest
+end
 
+-- Funktion um Brainrot zu „stehlen“
+local function steal(brainrot)
+    if not brainrot or not brainrot:IsA("BasePart") then return end
+    if debounce then return end
+    debounce = true
+    setStatus("Stehlen...", Color3.fromRGB(255, 200, 50))
+    wait(0.3)
+    setStatus("Geflogen!", Color3.fromRGB(50, 255, 50))
+    wait(0.5)
+    setStatus("Bereit", Color3.fromRGB(200, 200, 255))
+    debounce = false
+end
+
+-- Auto Steal Loop
+spawn(function()
+    while true do
+        wait(0.2)
+        if autoSteal then
+            local brainrot = getClosestBrainrot()
+            if brainrot then
+                steal(brainrot)
+            else
+                setStatus("Kein Brainrot in Reichweite", Color3.fromRGB(255,100,100))
+            end
+        end
+    end
+end)
+
+-- Optional: Manuelles Stehlen beim Berühren
 local function monitorBrainrot(brainrot)
     if not brainrot:IsA("BasePart") then return end
     brainrot.Touched:Connect(function(hit)
@@ -100,11 +143,7 @@ local function monitorBrainrot(brainrot)
         if char and char:FindFirstChild("Humanoid") then
             local plr = Players:GetPlayerFromCharacter(char)
             if plr == player and stealBrainrot then
-                setStatus("Stehlen...", Color3.fromRGB(255, 200, 50))
-                wait(0.3)
-                setStatus("Geflogen!", Color3.fromRGB(50, 255, 50))
-                wait(2)
-                setStatus("Bereit", Color3.fromRGB(200, 200, 255))
+                steal(brainrot)
             end
         end
     end)
@@ -121,21 +160,5 @@ end
 Workspace.DescendantAdded:Connect(function(obj)
     if obj.Name == "Brainrot" then
         monitorBrainrot(obj)
-    end
-end)
-
--- Auto Steal Funktion
-spawn(function()
-    while true do
-        wait(0.5)
-        if autoSteal then
-            for _, obj in ipairs(Workspace:GetDescendants()) do
-                if obj.Name == "Brainrot" then
-                    -- Hier kann dein Server-RemoteEvent gefeuert werden, z.B.
-                    -- game:GetService("ReplicatedStorage").StealBrainrot:FireServer(obj)
-                    setStatus("Auto Steal aktiviert!", Color3.fromRGB(255, 150, 50))
-                end
-            end
-        end
     end
 end)
