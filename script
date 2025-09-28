@@ -62,8 +62,8 @@ local function createButton(text, callback)
     return btn
 end
 
--- Button: RemoteEvents nur im Output listen
-createButton("List RemoteEvents (print)", function()
+-- Funktion: Alle RemoteEvents einsammeln
+local function getAllRemoteEvents()
     local function gather(parent)
         local out = {}
         for _, v in pairs(parent:GetDescendants()) do
@@ -80,8 +80,13 @@ createButton("List RemoteEvents (print)", function()
             table.insert(remotes, r)
         end
     end
+    return remotes
+end
 
-    print("Gefundene RemoteEvents:")
+-- Button: RemoteEvents nur im Output listen
+createButton("List RemoteEvents (print)", function()
+    local remotes = getAllRemoteEvents()
+    print("Gefundene RemoteEvents: "..#remotes)
     for i, r in ipairs(remotes) do
         print(i, r:GetFullName())
     end
@@ -96,23 +101,7 @@ createButton("List RemoteEvents (GUI)", function()
         end
     end
 
-    local function gather(parent)
-        local out = {}
-        for _, v in pairs(parent:GetDescendants()) do
-            if v:IsA("RemoteEvent") then
-                table.insert(out, v)
-            end
-        end
-        return out
-    end
-
-    local remotes = {}
-    for _, p in pairs({game:GetService("ReplicatedStorage"), workspace}) do
-        for _, r in pairs(gather(p)) do
-            table.insert(remotes, r)
-        end
-    end
-
+    local remotes = getAllRemoteEvents()
     print("Gefundene RemoteEvents: "..#remotes)
 
     for i, r in ipairs(remotes) do
@@ -129,10 +118,17 @@ createButton("List RemoteEvents (GUI)", function()
         corner.CornerRadius = UDim.new(0.1,0)
 
         btn.MouseButton1Click:Connect(function()
-            warn("FireServer auf "..r:GetFullName())
-            pcall(function()
-                r:FireServer()
-            end)
+            if r and r:IsA("RemoteEvent") then
+                warn("FireServer auf "..r:GetFullName())
+                local ok, err = pcall(function()
+                    r:FireServer()
+                end)
+                if not ok then
+                    warn("Fehler beim FireServer: "..tostring(err))
+                end
+            else
+                warn("Ungültiges RemoteEvent.")
+            end
         end)
     end
 end)
@@ -189,24 +185,7 @@ createButton("Start Events", function()
     LayoutEvents.SortOrder = Enum.SortOrder.LayoutOrder
     LayoutEvents.Padding = UDim.new(0,5)
 
-    -- RemoteEvents sammeln
-    local function gather(parent)
-        local out = {}
-        for _, v in pairs(parent:GetDescendants()) do
-            if v:IsA("RemoteEvent") then
-                table.insert(out, v)
-            end
-        end
-        return out
-    end
-
-    local remotes = {}
-    for _, p in pairs({game:GetService("ReplicatedStorage"), workspace}) do
-        for _, r in pairs(gather(p)) do
-            table.insert(remotes, r)
-        end
-    end
-
+    local remotes = getAllRemoteEvents()
     print("Events für Starter GUI gefunden: "..#remotes)
 
     for _, r in ipairs(remotes) do
@@ -223,10 +202,17 @@ createButton("Start Events", function()
         bcorner.CornerRadius = UDim.new(0.1,0)
 
         btn.MouseButton1Click:Connect(function()
-            warn("Starte Event -> "..r:GetFullName())
-            pcall(function()
-                r:FireServer()
-            end)
+            if r and r:IsA("RemoteEvent") then
+                warn("Starte Event -> "..r:GetFullName())
+                local ok, err = pcall(function()
+                    r:FireServer()
+                end)
+                if not ok then
+                    warn("Fehler beim FireServer: "..tostring(err))
+                end
+            else
+                warn("Ungültiges RemoteEvent.")
+            end
         end)
     end
 
