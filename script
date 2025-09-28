@@ -40,7 +40,6 @@ local Layout = Instance.new("UIListLayout", Scroll)
 Layout.SortOrder = Enum.SortOrder.LayoutOrder
 Layout.Padding = UDim.new(0,5)
 
--- Automatisches Canvas-Resizing
 Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     Scroll.CanvasSize = UDim2.new(0,0,0, Layout.AbsoluteContentSize.Y + 10)
 end)
@@ -84,7 +83,7 @@ local function getAllRemoteEvents()
     return remotes
 end
 
--- Button: RemoteEvents nur im Output listen
+-- Button: RemoteEvents im Output listen
 createButton("List RemoteEvents (print)", function()
     local remotes = getAllRemoteEvents()
     print("Gefundene RemoteEvents: "..#remotes)
@@ -93,9 +92,8 @@ createButton("List RemoteEvents (print)", function()
     end
 end)
 
--- Button: GUI Liste von RemoteEvents (anklickbar -> FireServer)
+-- Button: GUI Liste von RemoteEvents mit Eingabefeld für Args
 createButton("List RemoteEvents (GUI)", function()
-    -- Alte Buttons (außer Standard) löschen
     for _, child in ipairs(Scroll:GetChildren()) do
         if child:IsA("TextButton") and child.Text:find("RemoteEvent:") then
             child:Destroy()
@@ -105,7 +103,7 @@ createButton("List RemoteEvents (GUI)", function()
     local remotes = getAllRemoteEvents()
     print("Gefundene RemoteEvents: "..#remotes)
 
-    for i, r in ipairs(remotes) do
+    for _, r in ipairs(remotes) do
         local btn = Instance.new("TextButton")
         btn.Size = UDim2.new(1,-10,0,30)
         btn.BackgroundColor3 = Color3.fromRGB(90,90,90)
@@ -119,24 +117,97 @@ createButton("List RemoteEvents (GUI)", function()
         corner.CornerRadius = UDim.new(0.1,0)
 
         btn.MouseButton1Click:Connect(function()
-            if r and r:IsA("RemoteEvent") then
-                warn("FireServer auf "..r:GetFullName())
+            -- Eingabefeld öffnen
+            local Frame = Instance.new("Frame")
+            Frame.Size = UDim2.new(0,300,0,120)
+            Frame.Position = UDim2.new(0.5,0,0.5,0)
+            Frame.AnchorPoint = Vector2.new(0.5,0.5)
+            Frame.BackgroundColor3 = Color3.fromRGB(50,50,50)
+            Frame.Parent = ScreenGui
+
+            local fc = Instance.new("UICorner", Frame)
+            fc.CornerRadius = UDim.new(0.05,0)
+
+            local Label = Instance.new("TextLabel")
+            Label.Size = UDim2.new(1,0,0,30)
+            Label.BackgroundTransparency = 1
+            Label.Text = "Argumente für "..r.Name.." (Komma getrennt):"
+            Label.TextColor3 = Color3.fromRGB(220,220,220)
+            Label.Font = Enum.Font.Gotham
+            Label.TextSize = 16
+            Label.Parent = Frame
+
+            local Box = Instance.new("TextBox")
+            Box.Size = UDim2.new(1,-20,0,30)
+            Box.Position = UDim2.new(0,10,0,40)
+            Box.BackgroundColor3 = Color3.fromRGB(70,70,70)
+            Box.TextColor3 = Color3.fromRGB(255,255,255)
+            Box.PlaceholderText = "z.B. Hallo, 123, true"
+            Box.Font = Enum.Font.Gotham
+            Box.TextSize = 16
+            Box.Parent = Frame
+
+            local bc = Instance.new("UICorner", Box)
+            bc.CornerRadius = UDim.new(0.1,0)
+
+            local Send = Instance.new("TextButton")
+            Send.Size = UDim2.new(0.5,-15,0,30)
+            Send.Position = UDim2.new(0,10,1,-40)
+            Send.BackgroundColor3 = Color3.fromRGB(90,90,90)
+            Send.Text = "Send"
+            Send.TextColor3 = Color3.fromRGB(255,255,255)
+            Send.Font = Enum.Font.GothamBold
+            Send.TextSize = 16
+            Send.Parent = Frame
+            local sc = Instance.new("UICorner", Send)
+            sc.CornerRadius = UDim.new(0.2,0)
+
+            local Cancel = Instance.new("TextButton")
+            Cancel.Size = UDim2.new(0.5,-15,0,30)
+            Cancel.Position = UDim2.new(0.5,5,1,-40)
+            Cancel.BackgroundColor3 = Color3.fromRGB(90,90,90)
+            Cancel.Text = "Cancel"
+            Cancel.TextColor3 = Color3.fromRGB(255,255,255)
+            Cancel.Font = Enum.Font.GothamBold
+            Cancel.TextSize = 16
+            Cancel.Parent = Frame
+            local cc = Instance.new("UICorner", Cancel)
+            cc.CornerRadius = UDim.new(0.2,0)
+
+            Cancel.MouseButton1Click:Connect(function()
+                Frame:Destroy()
+            end)
+
+            Send.MouseButton1Click:Connect(function()
+                local raw = Box.Text
+                local args = {}
+                for part in string.gmatch(raw, "([^,]+)") do
+                    part = part:gsub("^%s*(.-)%s*$","%1") -- trim
+                    if tonumber(part) then
+                        table.insert(args, tonumber(part))
+                    elseif part == "true" then
+                        table.insert(args, true)
+                    elseif part == "false" then
+                        table.insert(args, false)
+                    else
+                        table.insert(args, part)
+                    end
+                end
+                warn("FireServer auf "..r:GetFullName().." mit Args:", unpack(args))
                 local ok, err = pcall(function()
-                    r:FireServer()
+                    r:FireServer(unpack(args))
                 end)
                 if not ok then
                     warn("Fehler beim FireServer: "..tostring(err))
                 end
-            else
-                warn("Ungültiges RemoteEvent.")
-            end
+                Frame:Destroy()
+            end)
         end)
     end
 end)
 
 -- Button: Event Starter Fenster
 createButton("Start Events", function()
-    -- Neues GUI Fenster
     local EventFrame = Instance.new("Frame")
     EventFrame.Size = UDim2.new(0, 350, 0, 450)
     EventFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -147,7 +218,6 @@ createButton("Start Events", function()
     local corner = Instance.new("UICorner", EventFrame)
     corner.CornerRadius = UDim.new(0.05,0)
 
-    -- Titel
     local EventTitle = Instance.new("TextLabel")
     EventTitle.Size = UDim2.new(1,0,0,40)
     EventTitle.BackgroundTransparency = 1
@@ -157,7 +227,6 @@ createButton("Start Events", function()
     EventTitle.TextSize = 24
     EventTitle.Parent = EventFrame
 
-    -- Schließen
     local Close = Instance.new("TextButton")
     Close.Size = UDim2.new(0,40,0,30)
     Close.Position = UDim2.new(1,-45,0,5)
@@ -173,7 +242,6 @@ createButton("Start Events", function()
         EventFrame:Destroy()
     end)
 
-    -- Scroll für Events
     local ScrollEvents = Instance.new("ScrollingFrame")
     ScrollEvents.Size = UDim2.new(1,-10,1,-50)
     ScrollEvents.Position = UDim2.new(0,5,0,45)
@@ -203,21 +271,16 @@ createButton("Start Events", function()
         bcorner.CornerRadius = UDim.new(0.1,0)
 
         btn.MouseButton1Click:Connect(function()
-            if r and r:IsA("RemoteEvent") then
-                warn("Starte Event -> "..r:GetFullName())
-                local ok, err = pcall(function()
-                    r:FireServer()
-                end)
-                if not ok then
-                    warn("Fehler beim FireServer: "..tostring(err))
-                end
-            else
-                warn("Ungültiges RemoteEvent.")
+            warn("Starte Event -> "..r:GetFullName())
+            local ok, err = pcall(function()
+                r:FireServer()
+            end)
+            if not ok then
+                warn("Fehler beim FireServer: "..tostring(err))
             end
         end)
     end
 
-    -- Canvas Auto-Size
     LayoutEvents:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         ScrollEvents.CanvasSize = UDim2.new(0,0,0, LayoutEvents.AbsoluteContentSize.Y + 10)
     end)
