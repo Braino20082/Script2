@@ -1,0 +1,107 @@
+-- Ein-Skript Steal Brainrot + GUI
+-- Platziere dieses Script als LocalScript in StarterPlayerScripts oder StarterGui
+
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local player = Players.LocalPlayer
+
+-- == GUI erstellen ==
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "StealGui"
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 220, 0, 70)
+frame.Position = UDim2.new(0.5, -110, 0.9, -35)
+frame.BackgroundTransparency = 0.5
+frame.Parent = screenGui
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -10, 0, 30)
+title.Position = UDim2.new(0, 5, 0, 5)
+title.Text = "Steal Brainrot"
+title.TextScaled = true
+title.BackgroundTransparency = 1
+title.Parent = frame
+
+local status = Instance.new("TextLabel")
+status.Size = UDim2.new(1, -10, 0, 30)
+status.Position = UDim2.new(0, 5, 0, 35)
+status.Text = "Status: ready"
+status.TextScaled = true
+status.BackgroundTransparency = 1
+status.Parent = frame
+
+-- == Funktion: nächstes Base-Part finden ==
+local function findNearestBase(position)
+    local basesFolder = Workspace:FindFirstChild("Bases")
+    if not basesFolder then return nil end
+
+    local nearest
+    local nearestDist = math.huge
+    for _, obj in ipairs(basesFolder:GetChildren()) do
+        if obj:IsA("BasePart") then
+            local d = (obj.Position - position).Magnitude
+            if d < nearestDist then
+                nearest = obj
+                nearestDist = d
+            end
+        end
+    end
+    return nearest
+end
+
+-- == Funktion: teleportiere Spieler zur Base ==
+local function teleportToBase(sourcePosition)
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
+    local hrp = player.Character.HumanoidRootPart
+    local base = findNearestBase(sourcePosition or hrp.Position)
+    if not base then
+        status.Text = "Fehler: Keine Base gefunden"
+        return
+    end
+    hrp.CFrame = base.CFrame + Vector3.new(0,5,0)
+    status.Text = "Geflogen zur Base!"
+    wait(3)
+    status.Text = "Status: ready"
+end
+
+-- == Funktion: Brainrot stehlen ==
+local function stealBrainrot(brainrotPart)
+    if not brainrotPart then return end
+    status.Text = "Stealing..."
+    teleportToBase(brainrotPart.Position)
+end
+
+-- == Brainrot-Teile überwachen ==
+local function setupBrainrot(brainrotPart)
+    if not brainrotPart:IsA("BasePart") then return end
+
+    local prompt = brainrotPart:FindFirstChildOfClass("ProximityPrompt")
+    if prompt then
+        prompt.Triggered:Connect(function()
+            stealBrainrot(brainrotPart)
+        end)
+    else
+        brainrotPart.Touched:Connect(function(hit)
+            local hChar = hit.Parent
+            if hChar and hChar:FindFirstChild("Humanoid") and Players:GetPlayerFromCharacter(hChar) == player then
+                stealBrainrot(brainrotPart)
+            end
+        end)
+    end
+end
+
+-- Alle existierenden Brainrot-Teile
+for _, obj in ipairs(Workspace:GetDescendants()) do
+    if obj.Name == "Brainrot" then
+        setupBrainrot(obj)
+    end
+end
+
+-- Neue Brainrot-Teile automatisch überwachen
+Workspace.DescendantAdded:Connect(function(desc)
+    if desc.Name == "Brainrot" then
+        setupBrainrot(desc)
+    end
+end)
