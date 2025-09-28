@@ -1,126 +1,137 @@
--- Tool & GamePass GUI (LocalScript)
+-- ServerScriptService/GiveAssetsServer.lua
+-- Server-seitiges Script: gibt Tools/Accessories serverseitig an Spieler, wenn erlaubt.
+-- Leg in ReplicatedStorage die Assets (Tools/Accessories) mit den in ASSET_MAP angegebenen Namen ab.
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local MarketplaceService = game:GetService("MarketplaceService")
 
--- GUI Setup
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ToolPassGUI"
-ScreenGui.Parent = PlayerGui
-ScreenGui.ResetOnSpawn = false
+-- RemoteEvent-Name (wird in ReplicatedStorage gesucht/erstellt)
+local REMOTE_NAME = "RequestServerGive"
 
-local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 280, 0, 160)
-MainFrame.Position = UDim2.new(0.5,0,0.5,0)
-MainFrame.AnchorPoint = Vector2.new(0.5,0.5)
-MainFrame.BackgroundColor3 = Color3.fromRGB(25,25,25)
-MainFrame.Parent = ScreenGui
+-- Whitelist: Server-Admins / Entwickler (UserIds die automatisch freigeschaltet werden)
+local DEV_WHITELIST = {
+    -- Beispiel: [12345678] = true,
+}
 
-local UICorner = Instance.new("UICorner", MainFrame)
-UICorner.CornerRadius = UDim.new(0.1,0)
+-- Mapping: "SpielPass-Name" -> GamePassId und AssetName im ReplicatedStorage
+-- Passe die Asset-Namen an die tatsächlichen Objekte im ReplicatedStorage an
+local PASS_MAP = {
+    ["VIP"] = {
+        PassId = 1229510262, -- Beispiel / ersetze falls nötig
+        AssetName = "VIPTool" -- Name eines Tools/Accessories in ReplicatedStorage
+    },
+    ["2x Geld"] = {
+        PassId = 1228591447, -- falls kein echt pass ID, setze 0
+        AssetName = "DoubleMoneyTool"
+    },
+    ["Admin-Befehle"] = {
+        PassId = 1227013099, -- ersetze ggf die korrekte Admin Pass ID
+        AssetName = "AdminTool"
+    }
+}
 
--- Title
-local Title = Instance.new("TextLabel", MainFrame)
-Title.Size = UDim2.new(1,-40,0,30)
-Title.Position = UDim2.new(0,10,0,5)
-Title.BackgroundTransparency = 1
-Title.Text = "Tools & GamePass"
-Title.TextColor3 = Color3.fromRGB(0,255,0)
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 18
-Title.TextXAlignment = Enum.TextXAlignment.Left
+-- Optional: Name für generelle "GiveAllTools" Aktion:
+local GIVE_ALL_TOOLS = true -- erlaubt Client, alle Tools anzufordern
 
--- Close Button
-local CloseButton = Instance.new("TextButton", MainFrame)
-CloseButton.Size = UDim2.new(0,28,0,28)
-CloseButton.Position = UDim2.new(1,-36,0,5)
-CloseButton.Text = "X"
-CloseButton.Font = Enum.Font.GothamBold
-CloseButton.TextColor3 = Color3.fromRGB(255,100,100)
-CloseButton.BackgroundColor3 = Color3.fromRGB(35,35,35)
-CloseButton.TextScaled = true
-local closeCorner = Instance.new("UICorner", CloseButton)
-closeCorner.CornerRadius = UDim.new(0.3,0)
-CloseButton.MouseButton1Click:Connect(function()
-    ScreenGui:Destroy()
-end)
-
--- Buttons
-local function makeButton(text, posY)
-    local b = Instance.new("TextButton", MainFrame)
-    b.Size = UDim2.new(0.9,0,0,38)
-    b.Position = UDim2.new(0.05,0,posY,0)
-    b.BackgroundColor3 = Color3.fromRGB(30,30,30)
-    b.TextColor3 = Color3.fromRGB(0,255,0)
-    b.Font = Enum.Font.GothamBold
-    b.Text = text
-    b.TextScaled = true
-    local c = Instance.new("UICorner", b)
-    c.CornerRadius = UDim.new(0.12,0)
-    return b
+-- Ensure RemoteEvent exists in ReplicatedStorage
+local remote = ReplicatedStorage:FindFirstChild(REMOTE_NAME)
+if not remote then
+    remote = Instance.new("RemoteEvent")
+    remote.Name = REMOTE_NAME
+    remote.Parent = ReplicatedStorage
 end
 
-local ToolButton = makeButton("Give & Equip All Tools",0.25)
-local PassButton = makeButton("Give GamePass Tools",0.65)
-
--- ---------- Tool Logic ----------
-local function equipTool(tool)
-    if not tool then return end
-    local backpack = LocalPlayer:FindFirstChild("Backpack") or Instance.new("Folder",LocalPlayer)
-    backpack.Name = "Backpack"
-    tool.Parent = backpack
-    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    local humanoid = character:FindFirstChildOfClass("Humanoid") or character:WaitForChild("Humanoid")
-    humanoid:EquipTool(tool)
-end
-
-ToolButton.MouseButton1Click:Connect(function()
-    for _, item in pairs(ReplicatedStorage:GetDescendants()) do
-        if item:IsA("Tool") then
-            local clone = item:Clone()
-            equipTool(clone)
+-- Hilfsfunktion: prüft ob Spieler den Pass hat oder in Whitelist ist
+local function playerAllowedForPass(player, passId)
+    if DEV_WHITELIST[player.UserId] then
+        return true
+    end
+    if passId and passId > 0 then
+        local ok, owns = pcall(function()
+            return MarketplaceService:UserOwnsGamePassAsync(player.UserId, passId)
+        end)
+        if ok and owns then
+            return true
         end
     end
-    print("Alle Tools geklont & ausgerüstet!")
-end)
-
--- ---------- GamePass Tools ----------
-local GAMEPASS_NAMES = {"VIP","2x Geld","Admin"}
-local function createSimTool(name)
-    local tool = Instance.new("Tool")
-    tool.Name = name
-    local handle = Instance.new("Part")
-    handle.Name = "Handle"
-    handle.Size = Vector3.new(1,1,1)
-    handle.CanCollide = false
-    handle.Transparency = 0.3
-    handle.Parent = tool
-
-    -- Billboard für andere sichtbar
-    local bg = Instance.new("BillboardGui", handle)
-    bg.Size = UDim2.new(0,120,0,40)
-    bg.AlwaysOnTop = true
-    bg.StudsOffset = Vector3.new(0,1.5,0)
-    local label = Instance.new("TextLabel", bg)
-    label.Size = UDim2.new(1,0,1,0)
-    label.BackgroundTransparency = 0.6
-    label.BackgroundColor3 = Color3.fromRGB(20,20,20)
-    label.TextColor3 = Color3.fromRGB(0,255,0)
-    label.TextScaled = true
-    label.Text = name
-    return tool
+    return false
 end
 
-PassButton.MouseButton1Click:Connect(function()
-    for _, name in pairs(GAMEPASS_NAMES) do
-        -- Versuche Tool/Accessory im ReplicatedStorage zu finden
-        local asset = ReplicatedStorage:FindFirstChild(name)
-        if asset and asset:IsA("Tool") then
-            equipTool(asset:Clone())
+-- Hilfsfunktion: gebe ein Asset (Tool/Accessory) an Spieler (serverseitig)
+local function giveAssetToPlayer(player, assetName)
+    if not assetName then return false, "No assetName" end
+    local asset = ReplicatedStorage:FindFirstChild(assetName)
+    if not asset then
+        return false, "Asset not found: "..assetName
+    end
+
+    local cloned = asset:Clone()
+    -- Wenn Tool -> in Backpack, Accessory -> an Character parenten
+    if cloned:IsA("Tool") then
+        cloned.Parent = player:FindFirstChild("Backpack") or player
+        return true, "Tool given: "..cloned.Name
+    elseif cloned:IsA("Accessory") then
+        -- Character muss vorhanden sein
+        local char = player.Character
+        if char then
+            cloned.Parent = char
+            return true, "Accessory parented to Character: "..cloned.Name
         else
-            equipTool(createSimTool(name))
+            cloned.Parent = player -- fallback
+            return true, "Accessory given to player (no char): "..cloned.Name
         end
+    else
+        -- Fallback: parent to Backpack or Character
+        local char = player.Character
+        if char then
+            cloned.Parent = char
+        else
+            cloned.Parent = player:FindFirstChild("Backpack") or player
+        end
+        return true, "Generic asset given: "..cloned.Name
     end
-    print("GamePass Tools simuliert & ausgerüstet!")
+end
+
+-- Handle remote requests from clients
+remote.OnServerEvent:Connect(function(player, action, payload)
+    -- action: string indicating request type
+    if action == "RequestPassAsset" and type(payload) == "string" then
+        local passEntry = PASS_MAP[payload]
+        if not passEntry then
+            remote:FireClient(player, "Response", false, "Unknown pass "..tostring(payload))
+            return
+        end
+        local allowed = playerAllowedForPass(player, passEntry.PassId)
+        if allowed then
+            local ok, msg = pcall(function()
+                return giveAssetToPlayer(player, passEntry.AssetName)
+            end)
+            if ok then
+                remote:FireClient(player, "Response", true, "Given asset for "..payload)
+            else
+                remote:FireClient(player, "Response", false, "Server error giving asset: "..tostring(msg))
+            end
+        else
+            remote:FireClient(player, "Response", false, "Not owner of pass or not whitelisted")
+        end
+
+    elseif action == "RequestGiveAllTools" and GIVE_ALL_TOOLS then
+        -- gebe alle Tools aus ReplicatedStorage (serverseitig)
+        local count = 0
+        for _, item in pairs(ReplicatedStorage:GetChildren()) do
+            if item:IsA("Tool") then
+                local ok, msg = pcall(function()
+                    local clone = item:Clone()
+                    clone.Parent = player:FindFirstChild("Backpack") or player
+                end)
+                if ok then count = count + 1 end
+            end
+        end
+        remote:FireClient(player, "Response", true, "Gave "..tostring(count).." tools.")
+    else
+        remote:FireClient(player, "Response", false, "Unknown action or not allowed")
+    end
 end)
+
+print("[GiveAssetsServer] Ready, Remote:", remote:GetFullName())
