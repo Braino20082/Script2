@@ -1,6 +1,5 @@
--- Rtx Float v2 GUI
--- Rectangle with circular ends, sleek green gradient outline, draggable
--- Buttons: Float v1 + Player ESP
+-- Rtx Float v2 GUI - Enhanced Version
+-- Features: Float, Player ESP, NPC-Shop Buttons, Draggable, Gradient Style
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -18,19 +17,19 @@ ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 -- Main Frame
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 240, 0, 170)
+MainFrame.Size = UDim2.new(0, 260, 0, 200)
 MainFrame.Position = UDim2.new(0.35, 0, 0.1, 0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20,20,20)
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
 MainFrame.Parent = ScreenGui
 
--- Circular ends
+-- Rounded Corners
 local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0.2,0)
 UICorner.Parent = MainFrame
 
--- Green gradient outline
+-- Gradient Outline
 local UIStroke = Instance.new("UIStroke")
 UIStroke.Thickness = 3
 UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
@@ -54,13 +53,19 @@ Title.Font = Enum.Font.GothamBold
 Title.TextSize = 22
 Title.Parent = MainFrame
 
--- Function to style buttons
-local function styleButton(button)
+-- Utility function to create styled buttons
+local function createButton(name, text, position, parent)
+    local button = Instance.new("TextButton")
+    button.Name = name
+    button.Size = UDim2.new(0.8,0,0,40)
+    button.Position = position
+    button.Text = text
     button.BackgroundColor3 = Color3.fromRGB(30,30,30)
     button.TextColor3 = Color3.fromRGB(0,255,0)
     button.Font = Enum.Font.GothamBold
     button.TextScaled = true
     button.ClipsDescendants = true
+    button.Parent = parent
 
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0.2,0)
@@ -77,28 +82,27 @@ local function styleButton(button)
     }
     grad.Rotation = 45
     grad.Parent = outline
+
+    -- Hover effect
+    button.MouseEnter:Connect(function()
+        button.BackgroundColor3 = Color3.fromRGB(40,40,40)
+    end)
+    button.MouseLeave:Connect(function()
+        button.BackgroundColor3 = Color3.fromRGB(30,30,30)
+    end)
+
+    return button
 end
 
--- Float Button
-local FloatButton = Instance.new("TextButton")
-FloatButton.Size = UDim2.new(0.8,0,0,40)
-FloatButton.Position = UDim2.new(0.1,0,0.35,0)
-FloatButton.Text = "Float v1"
-FloatButton.Parent = MainFrame
-styleButton(FloatButton)
+-- Buttons
+local FloatButton = createButton("FloatButton", "Float v1", UDim2.new(0.1,0,0.25,0), MainFrame)
+local ESPButton = createButton("ESPButton", "Player ESP: OFF", UDim2.new(0.1,0,0.5,0), MainFrame)
+local ShopButton = createButton("ShopButton", "NPC Shop", UDim2.new(0.1,0,0.75,0), MainFrame)
 
--- ESP Button
-local ESPButton = Instance.new("TextButton")
-ESPButton.Size = UDim2.new(0.8,0,0,40)
-ESPButton.Position = UDim2.new(0.1,0,0.65,0)
-ESPButton.Text = "Player ESP: OFF"
-ESPButton.Parent = MainFrame
-styleButton(ESPButton)
-
--- Dragging
+-- Dragging Logic
 local dragging, dragInput, dragStart, startPos
 MainFrame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
         dragging = true
         dragStart = input.Position
         startPos = MainFrame.Position
@@ -110,7 +114,7 @@ MainFrame.InputBegan:Connect(function(input)
     end
 end)
 MainFrame.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+    if input.UserInputType == Enum.UserInputType.MouseMovement then
         dragInput = input
     end
 end)
@@ -124,19 +128,17 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- Float Logic (slightly faster)
+-- Float Logic
 local floatEnabled = false
 local floatConnection
-
 local function toggleFloat()
     floatEnabled = not floatEnabled
     if floatEnabled then
         FloatButton.Text = "Float ON"
         floatConnection = RunService.RenderStepped:Connect(function()
             if Character and HumanoidRootPart then
-                local Camera = workspace.CurrentCamera
-                local moveDir = Camera.CFrame.LookVector
-                HumanoidRootPart.Velocity = moveDir * 26 + Vector3.new(0, 9, 0) -- faster float
+                local moveDir = workspace.CurrentCamera.CFrame.LookVector
+                HumanoidRootPart.Velocity = moveDir * 26 + Vector3.new(0, 9, 0)
             end
         end)
     else
@@ -150,7 +152,6 @@ FloatButton.MouseButton1Click:Connect(toggleFloat)
 -- ESP Logic
 local espEnabled = false
 local espHighlights = {}
-
 local function addESP(player)
     if player.Character and not espHighlights[player] then
         local highlight = Instance.new("Highlight")
@@ -163,14 +164,12 @@ local function addESP(player)
         espHighlights[player] = highlight
     end
 end
-
 local function removeESP(player)
     if espHighlights[player] then
         espHighlights[player]:Destroy()
         espHighlights[player] = nil
     end
 end
-
 local function toggleESP()
     espEnabled = not espEnabled
     if espEnabled then
@@ -191,3 +190,75 @@ local function toggleESP()
     end
 end
 ESPButton.MouseButton1Click:Connect(toggleESP)
+
+-- NPC Shop GUI
+local ShopFrame = Instance.new("Frame")
+ShopFrame.Size = UDim2.new(0, 200, 0, 120)
+ShopFrame.Position = UDim2.new(0.5,0,0.5,0)
+ShopFrame.AnchorPoint = Vector2.new(0.5,0.5)
+ShopFrame.BackgroundColor3 = Color3.fromRGB(25,25,25)
+ShopFrame.BorderSizePixel = 0
+ShopFrame.Visible = false
+ShopFrame.Parent = ScreenGui
+
+local ShopCorner = Instance.new("UICorner")
+ShopCorner.CornerRadius = UDim.new(0.2,0)
+ShopCorner.Parent = ShopFrame
+
+local ShopTitle = Instance.new("TextLabel")
+ShopTitle.Size = UDim2.new(1,0,0,30)
+ShopTitle.BackgroundTransparency = 1
+ShopTitle.Text = "NPC Shop"
+ShopTitle.TextColor3 = Color3.fromRGB(0,255,0)
+ShopTitle.Font = Enum.Font.GothamBold
+ShopTitle.TextSize = 20
+ShopTitle.Parent = ShopFrame
+
+local function createShopButton(text, position)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.8,0,0,35)
+    btn.Position = position
+    btn.Text = text
+    btn.BackgroundColor3 = Color3.fromRGB(30,30,30)
+    btn.TextColor3 = Color3.fromRGB(0,255,0)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextScaled = true
+    btn.ClipsDescendants = true
+    btn.Parent = ShopFrame
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0.2,0)
+    corner.Parent = btn
+
+    local outline = Instance.new("UIStroke")
+    outline.Thickness = 2
+    outline.Parent = btn
+
+    local grad = Instance.new("UIGradient")
+    grad.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(0,255,0)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(0,180,0))
+    }
+    grad.Rotation = 45
+    grad.Parent = outline
+
+    btn.MouseEnter:Connect(function() btn.BackgroundColor3 = Color3.fromRGB(40,40,40) end)
+    btn.MouseLeave:Connect(function() btn.BackgroundColor3 = Color3.fromRGB(30,30,30) end)
+
+    return btn
+end
+
+local BuyButton = createShopButton("Kaufen", UDim2.new(0.1,0,0.35,0))
+local NevermindButton = createShopButton("Nevermind", UDim2.new(0.1,0,0.65,0))
+
+BuyButton.MouseButton1Click:Connect(function()
+    print("NPC Item gekauft!") -- hier kann deine Kauf-Logik
+    ShopFrame.Visible = false
+end)
+NevermindButton.MouseButton1Click:Connect(function()
+    ShopFrame.Visible = false
+end)
+
+ShopButton.MouseButton1Click:Connect(function()
+    ShopFrame.Visible = not ShopFrame.Visible
+end)
