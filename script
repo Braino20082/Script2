@@ -1,28 +1,25 @@
--- EIN-SCRIPT-VERSION: GUI + Server-Logik in einem
--- Speichern als "Script" in ServerScriptService
+-- 📌 Speichern als "Script" in ServerScriptService
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -------------------------------------------------------------------
--- 🧠 SERVER: Lauscht auf alle RemoteEvents und loggt Aufrufe
+-- 🧠 SERVER: Lauscht auf RemoteEvents (läuft sicher auf dem Server)
 -------------------------------------------------------------------
 local function connectRemoteEvent(event)
 	print("📡 Lausche auf:", event:GetFullName())
 	event.OnServerEvent:Connect(function(player, args)
 		print("✅ Server hat Event empfangen:", event:GetFullName(), "von", player.Name, "mit:", args)
-		-- 👉 Hier kannst du deine Logik einfügen
+		-- Hier deine Serverlogik einfügen
 	end)
 end
 
--- Alle vorhandenen RemoteEvents verbinden
 for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
 	if obj:IsA("RemoteEvent") then
 		connectRemoteEvent(obj)
 	end
 end
 
--- Auch zukünftige RemoteEvents abfangen
 ReplicatedStorage.DescendantAdded:Connect(function(obj)
 	if obj:IsA("RemoteEvent") then
 		connectRemoteEvent(obj)
@@ -30,24 +27,18 @@ ReplicatedStorage.DescendantAdded:Connect(function(obj)
 end)
 
 -------------------------------------------------------------------
--- 🖥️ CLIENT: GUI + FireServer automatisch erstellen
+-- 🖥️ CLIENT-GUI: Wird automatisch beim Spieler erstellt
 -------------------------------------------------------------------
 Players.PlayerAdded:Connect(function(player)
 	player.CharacterAdded:Connect(function()
-		-- Warte bis PlayerGui existiert
-		local PlayerGui = player:WaitForChild("PlayerGui")
-
-		-- LocalScript erstellen
+		-- Warte, bis PlayerGui vorhanden ist
 		local guiScript = Instance.new("LocalScript")
 		guiScript.Name = "EventGuiLocal"
-		guiScript.Parent = PlayerGui
-
 		guiScript.Source = [[
 			local ReplicatedStorage = game:GetService("ReplicatedStorage")
 			local Players = game:GetService("Players")
 			local LocalPlayer = Players.LocalPlayer
 
-			-- GUI erstellen
 			local ScreenGui = Instance.new("ScreenGui")
 			ScreenGui.Name = "EventGui"
 			ScreenGui.ResetOnSpawn = false
@@ -98,8 +89,6 @@ Players.PlayerAdded:Connect(function(player)
 			UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
 			local function CreateEventButton(event)
-				print("📍 Gefundener RemoteEvent:", event:GetFullName())
-
 				local Holder = Instance.new("Frame")
 				Holder.Size = UDim2.new(1, -10, 0, 50)
 				Holder.BackgroundTransparency = 1
@@ -141,20 +130,11 @@ Players.PlayerAdded:Connect(function(player)
 						end
 					end
 
-					print("📤 FireServer wird ausgeführt für:", event:GetFullName(), args or "ohne Parameter")
-
-					local success, err = pcall(function()
-						if args ~= nil then
-							event:FireServer(args)
-						else
-							event:FireServer()
-						end
-					end)
-
-					if success then
-						print("✅ Event gestartet:", event:GetFullName(), args or "ohne Parameter")
+					print("📤 FireServer für:", event:GetFullName(), args or "ohne Parameter")
+					if args ~= nil then
+						event:FireServer(args)
 					else
-						warn("❌ Fehler bei Event:", event.Name, err)
+						event:FireServer()
 					end
 				end)
 			end
@@ -169,5 +149,8 @@ Players.PlayerAdded:Connect(function(player)
 				ScrollingFrame.CanvasSize = UDim2.new(0,0,0,UIListLayout.AbsoluteContentSize.Y)
 			end)
 		]]
+
+		-- LocalScript im PlayerGui erzeugen
+		guiScript.Parent = player:WaitForChild("PlayerGui")
 	end)
 end)
