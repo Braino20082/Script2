@@ -1,16 +1,13 @@
--- 📌 Speichern als "Script" in ServerScriptService
+-- 📌 In ServerScriptService einfügen (NICHT als LocalScript!)
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
--------------------------------------------------------------------
--- 🧠 SERVER: Lauscht auf RemoteEvents (läuft sicher auf dem Server)
--------------------------------------------------------------------
+-- ✅ Server: Lauscht korrekt auf alle RemoteEvents
 local function connectRemoteEvent(event)
 	print("📡 Lausche auf:", event:GetFullName())
 	event.OnServerEvent:Connect(function(player, args)
 		print("✅ Server hat Event empfangen:", event:GetFullName(), "von", player.Name, "mit:", args)
-		-- Hier deine Serverlogik einfügen
 	end)
 end
 
@@ -26,12 +23,10 @@ ReplicatedStorage.DescendantAdded:Connect(function(obj)
 	end
 end)
 
--------------------------------------------------------------------
--- 🖥️ CLIENT-GUI: Wird automatisch beim Spieler erstellt
--------------------------------------------------------------------
+-- ✨ Automatisch ein LocalScript im PlayerGui erstellen
 Players.PlayerAdded:Connect(function(player)
 	player.CharacterAdded:Connect(function()
-		-- Warte, bis PlayerGui vorhanden ist
+		task.wait(1)
 		local guiScript = Instance.new("LocalScript")
 		guiScript.Name = "EventGuiLocal"
 		guiScript.Source = [[
@@ -48,9 +43,6 @@ Players.PlayerAdded:Connect(function(player)
 			MainFrame.Size = UDim2.new(0, 400, 0, 500)
 			MainFrame.Position = UDim2.new(0.25, 0, 0.25, 0)
 			MainFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-			MainFrame.BorderSizePixel = 2
-			MainFrame.Active = true
-			MainFrame.Draggable = true
 			MainFrame.Parent = ScreenGui
 
 			local Title = Instance.new("TextLabel")
@@ -150,7 +142,6 @@ Players.PlayerAdded:Connect(function(player)
 			end)
 		]]
 
-		-- LocalScript im PlayerGui erzeugen
 		guiScript.Parent = player:WaitForChild("PlayerGui")
 	end)
 end)
