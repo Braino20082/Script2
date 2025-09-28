@@ -1,99 +1,223 @@
--- ServerScriptService/GetServerTools.lua
--- Ein Button: klick = alle Tools auf dem Server bekommen (im Workspace oder ServerStorage)
-
+-- LocalScript in StarterGui
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local ServerStorage = game:GetService("ServerStorage")
-local Workspace = game:GetService("Workspace")
+local player = Players.LocalPlayer
 
--- RemoteEvent erstellen
-local ToolRequest = ReplicatedStorage:FindFirstChild("ToolRequest")
-if not ToolRequest then
-    ToolRequest = Instance.new("RemoteEvent")
-    ToolRequest.Name = "ToolRequest"
-    ToolRequest.Parent = ReplicatedStorage
+-- ScreenGui
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- Hauptframe
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 250, 0, 400)
+MainFrame.Position = UDim2.new(0, 20, 0.5, -200)
+MainFrame.BackgroundColor3 = Color3.fromRGB(40,40,40)
+MainFrame.Parent = ScreenGui
+
+local corner = Instance.new("UICorner", MainFrame)
+corner.CornerRadius = UDim.new(0.05,0)
+
+-- Titel
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1,0,0,40)
+Title.BackgroundTransparency = 1
+Title.Text = "Admin Panel"
+Title.TextColor3 = Color3.fromRGB(220,220,220)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 24
+Title.Parent = MainFrame
+
+-- ScrollFrame für Buttons
+local Scroll = Instance.new("ScrollingFrame")
+Scroll.Size = UDim2.new(1,-10,1,-50)
+Scroll.Position = UDim2.new(0,5,0,45)
+Scroll.BackgroundTransparency = 1
+Scroll.ScrollBarThickness = 6
+Scroll.CanvasSize = UDim2.new(0,0,0,0)
+Scroll.Parent = MainFrame
+
+local Layout = Instance.new("UIListLayout", Scroll)
+Layout.SortOrder = Enum.SortOrder.LayoutOrder
+Layout.Padding = UDim.new(0,5)
+
+-- Automatisches Canvas-Resizing
+Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    Scroll.CanvasSize = UDim2.new(0,0,0, Layout.AbsoluteContentSize.Y + 10)
+end)
+
+-- Funktion: Button erstellen
+local function createButton(text, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1,-10,0,35)
+    btn.BackgroundColor3 = Color3.fromRGB(90,90,90)
+    btn.TextColor3 = Color3.fromRGB(220,220,220)
+    btn.Font = Enum.Font.Gotham
+    btn.TextScaled = true
+    btn.Text = text
+    btn.Parent = Scroll
+
+    local bcorner = Instance.new("UICorner", btn)
+    bcorner.CornerRadius = UDim.new(0.1,0)
+
+    btn.MouseButton1Click:Connect(callback)
+    return btn
 end
 
--- Funktion: alle Tools auf Server finden und an Spieler geben
-local function giveAllServerTools(player)
-    local backpack = player:FindFirstChildOfClass("Backpack")
-    if not backpack then return end
-
-    -- Durch Workspace und ServerStorage suchen
-    local containers = {Workspace, ServerStorage}
-    for _, container in pairs(containers) do
-        for _, obj in pairs(container:GetDescendants()) do
-            if obj:IsA("Tool") then
-                local existing = backpack:FindFirstChild(obj.Name)
-                if existing then existing:Destroy() end
-                obj:Clone().Parent = backpack
+-- Funktion: Alle RemoteEvents einsammeln
+local function getAllRemoteEvents()
+    local function gather(parent)
+        local out = {}
+        for _, v in pairs(parent:GetDescendants()) do
+            if v:IsA("RemoteEvent") then
+                table.insert(out, v)
             end
         end
+        return out
     end
+
+    local remotes = {}
+    for _, p in pairs({game:GetService("ReplicatedStorage"), workspace}) do
+        for _, r in pairs(gather(p)) do
+            table.insert(remotes, r)
+        end
+    end
+    return remotes
 end
 
--- RemoteEvent empfangen
-ToolRequest.OnServerEvent:Connect(function(player)
-    giveAllServerTools(player)
+-- Button: RemoteEvents nur im Output listen
+createButton("List RemoteEvents (print)", function()
+    local remotes = getAllRemoteEvents()
+    print("Gefundene RemoteEvents: "..#remotes)
+    for i, r in ipairs(remotes) do
+        print(i, r:GetFullName())
+    end
 end)
 
--- LocalScript GUI-Code für den Spieler
-local localScriptSource = 
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local player = game.Players.LocalPlayer
-local ToolRequest = ReplicatedStorage:WaitForChild("ToolRequest")
+-- Button: GUI Liste von RemoteEvents (anklickbar -> FireServer)
+createButton("List RemoteEvents (GUI)", function()
+    -- Alte Buttons (außer Standard) löschen
+    for _, child in ipairs(Scroll:GetChildren()) do
+        if child:IsA("TextButton") and child.Text:find("RemoteEvent:") then
+            child:Destroy()
+        end
+    end
 
--- ScreenGui erstellen
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "GetServerToolsGUI"
-screenGui.ResetOnSpawn = false
-screenGui.Parent = player:WaitForChild("PlayerGui")
+    local remotes = getAllRemoteEvents()
+    print("Gefundene RemoteEvents: "..#remotes)
 
--- Button direkt im ScreenGui, zentriert
-local btn = Instance.new("TextButton")
-btn.Size = UDim2.new(0, 220, 0, 60)
-btn.AnchorPoint = Vector2.new(0.5, 0.5)
-btn.Position = UDim2.new(0.5, 0, 0.5, 0)
-btn.Text = "Alle Server-Tools holen"
-btn.Font = Enum.Font.GothamBold
-btn.TextSize = 20
-btn.TextColor3 = Color3.fromRGB(255,255,255)
-btn.BackgroundColor3 = Color3.fromRGB(50,50,50)
-btn.BorderSizePixel = 0
-btn.Parent = screenGui
+    for i, r in ipairs(remotes) do
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1,-10,0,30)
+        btn.BackgroundColor3 = Color3.fromRGB(90,90,90)
+        btn.TextColor3 = Color3.fromRGB(220,220,220)
+        btn.Font = Enum.Font.Gotham
+        btn.TextScaled = true
+        btn.Text = "RemoteEvent: "..r.Name
+        btn.Parent = Scroll
 
--- Hover-Effekt
-btn.MouseEnter:Connect(function()
-    btn.BackgroundColor3 = Color3.fromRGB(70,70,70)
-end)
-btn.MouseLeave:Connect(function()
-    btn.BackgroundColor3 = Color3.fromRGB(50,50,50)
-end)
+        local corner = Instance.new("UICorner", btn)
+        corner.CornerRadius = UDim.new(0.1,0)
 
--- Klick-Event: RemoteEvent feuern
-btn.MouseButton1Click:Connect(function()
-    ToolRequest:FireServer()
-end)
-
-
--- Funktion: LocalScript an Spieler deployen
-local function deployLocalScript(player)
-    local pg = player:WaitForChild("PlayerGui")
-    if pg:FindFirstChild("GetServerToolsGUI") then pg.GetServerToolsGUI:Destroy() end
-    local ls = Instance.new("LocalScript")
-    ls.Name = "GetServerToolsClient"
-    ls.Source = localScriptSource
-    ls.Parent = pg
-end
-
--- Spieler joinet
-Players.PlayerAdded:Connect(function(player)
-    deployLocalScript(player)
+        btn.MouseButton1Click:Connect(function()
+            if r and r:IsA("RemoteEvent") then
+                warn("FireServer auf "..r:GetFullName())
+                local ok, err = pcall(function()
+                    r:FireServer()
+                end)
+                if not ok then
+                    warn("Fehler beim FireServer: "..tostring(err))
+                end
+            else
+                warn("Ungültiges RemoteEvent.")
+            end
+        end)
+    end
 end)
 
--- Bereits im Spiel
-for _, p in pairs(Players:GetPlayers()) do
-    deployLocalScript(p)
-end
+-- Button: Event Starter Fenster
+createButton("Start Events", function()
+    -- Neues GUI Fenster
+    local EventFrame = Instance.new("Frame")
+    EventFrame.Size = UDim2.new(0, 350, 0, 450)
+    EventFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+    EventFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+    EventFrame.BackgroundColor3 = Color3.fromRGB(40,40,40)
+    EventFrame.Parent = ScreenGui
 
-print("GetServerTools Script läuft – ein Klick = alle Tools im Server!")
+    local corner = Instance.new("UICorner", EventFrame)
+    corner.CornerRadius = UDim.new(0.05,0)
+
+    -- Titel
+    local EventTitle = Instance.new("TextLabel")
+    EventTitle.Size = UDim2.new(1,0,0,40)
+    EventTitle.BackgroundTransparency = 1
+    EventTitle.Text = "Event Starter"
+    EventTitle.TextColor3 = Color3.fromRGB(220,220,220)
+    EventTitle.Font = Enum.Font.GothamBold
+    EventTitle.TextSize = 24
+    EventTitle.Parent = EventFrame
+
+    -- Schließen
+    local Close = Instance.new("TextButton")
+    Close.Size = UDim2.new(0,40,0,30)
+    Close.Position = UDim2.new(1,-45,0,5)
+    Close.Text = "X"
+    Close.Font = Enum.Font.GothamBold
+    Close.TextColor3 = Color3.fromRGB(255,100,100)
+    Close.BackgroundColor3 = Color3.fromRGB(70,70,70)
+    Close.Parent = EventFrame
+    local cc = Instance.new("UICorner", Close)
+    cc.CornerRadius = UDim.new(0.3,0)
+
+    Close.MouseButton1Click:Connect(function()
+        EventFrame:Destroy()
+    end)
+
+    -- Scroll für Events
+    local ScrollEvents = Instance.new("ScrollingFrame")
+    ScrollEvents.Size = UDim2.new(1,-10,1,-50)
+    ScrollEvents.Position = UDim2.new(0,5,0,45)
+    ScrollEvents.BackgroundTransparency = 1
+    ScrollEvents.ScrollBarThickness = 6
+    ScrollEvents.CanvasSize = UDim2.new(0,0,0,0)
+    ScrollEvents.Parent = EventFrame
+
+    local LayoutEvents = Instance.new("UIListLayout", ScrollEvents)
+    LayoutEvents.SortOrder = Enum.SortOrder.LayoutOrder
+    LayoutEvents.Padding = UDim.new(0,5)
+
+    local remotes = getAllRemoteEvents()
+    print("Events für Starter GUI gefunden: "..#remotes)
+
+    for _, r in ipairs(remotes) do
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1,-10,0,35)
+        btn.BackgroundColor3 = Color3.fromRGB(90,90,90)
+        btn.TextColor3 = Color3.fromRGB(220,220,220)
+        btn.Font = Enum.Font.Gotham
+        btn.TextScaled = true
+        btn.Text = "Event: "..r.Name
+        btn.Parent = ScrollEvents
+
+        local bcorner = Instance.new("UICorner", btn)
+        bcorner.CornerRadius = UDim.new(0.1,0)
+
+        btn.MouseButton1Click:Connect(function()
+            if r and r:IsA("RemoteEvent") then
+                warn("Starte Event -> "..r:GetFullName())
+                local ok, err = pcall(function()
+                    r:FireServer()
+                end)
+                if not ok then
+                    warn("Fehler beim FireServer: "..tostring(err))
+                end
+            else
+                warn("Ungültiges RemoteEvent.")
+            end
+        end)
+    end
+
+    -- Canvas Auto-Size
+    LayoutEvents:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        ScrollEvents.CanvasSize = UDim2.new(0,0,0, LayoutEvents.AbsoluteContentSize.Y + 10)
+    end)
+end)
