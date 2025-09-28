@@ -1,137 +1,110 @@
--- ServerScriptService/GiveAssetsServer.lua
--- Server-seitiges Script: gibt Tools/Accessories serverseitig an Spieler, wenn erlaubt.
--- Leg in ReplicatedStorage die Assets (Tools/Accessories) mit den in ASSET_MAP angegebenen Namen ab.
+-- RemoteEvent GUI Exploit
+-- Erstellt eine GUI mit allen RemoteEvents, die man per Klick auslösen kann
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local MarketplaceService = game:GetService("MarketplaceService")
+local PlayerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 
--- RemoteEvent-Name (wird in ReplicatedStorage gesucht/erstellt)
-local REMOTE_NAME = "RequestServerGive"
+-- GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "RemoteEventGUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = PlayerGui
 
--- Whitelist: Server-Admins / Entwickler (UserIds die automatisch freigeschaltet werden)
-local DEV_WHITELIST = {
-    -- Beispiel: [12345678] = true,
-}
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 350, 0, 400)
+MainFrame.Position = UDim2.new(0.5,0,0.5,0)
+MainFrame.AnchorPoint = Vector2.new(0.5,0.5)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20,20,20)
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = ScreenGui
 
--- Mapping: "SpielPass-Name" -> GamePassId und AssetName im ReplicatedStorage
--- Passe die Asset-Namen an die tatsächlichen Objekte im ReplicatedStorage an
-local PASS_MAP = {
-    ["VIP"] = {
-        PassId = 1229510262, -- Beispiel / ersetze falls nötig
-        AssetName = "VIPTool" -- Name eines Tools/Accessories in ReplicatedStorage
-    },
-    ["2x Geld"] = {
-        PassId = 1228591447, -- falls kein echt pass ID, setze 0
-        AssetName = "DoubleMoneyTool"
-    },
-    ["Admin-Befehle"] = {
-        PassId = 1227013099, -- ersetze ggf die korrekte Admin Pass ID
-        AssetName = "AdminTool"
-    }
-}
+local UICorner = Instance.new("UICorner", MainFrame)
+UICorner.CornerRadius = UDim.new(0.1,0)
 
--- Optional: Name für generelle "GiveAllTools" Aktion:
-local GIVE_ALL_TOOLS = true -- erlaubt Client, alle Tools anzufordern
+-- Title
+local Title = Instance.new("TextLabel", MainFrame)
+Title.Size = UDim2.new(1,0,0,30)
+Title.BackgroundTransparency = 1
+Title.Text = "RemoteEvents GUI"
+Title.TextColor3 = Color3.fromRGB(0,255,0)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 20
 
--- Ensure RemoteEvent exists in ReplicatedStorage
-local remote = ReplicatedStorage:FindFirstChild(REMOTE_NAME)
-if not remote then
-    remote = Instance.new("RemoteEvent")
-    remote.Name = REMOTE_NAME
-    remote.Parent = ReplicatedStorage
-end
-
--- Hilfsfunktion: prüft ob Spieler den Pass hat oder in Whitelist ist
-local function playerAllowedForPass(player, passId)
-    if DEV_WHITELIST[player.UserId] then
-        return true
-    end
-    if passId and passId > 0 then
-        local ok, owns = pcall(function()
-            return MarketplaceService:UserOwnsGamePassAsync(player.UserId, passId)
-        end)
-        if ok and owns then
-            return true
-        end
-    end
-    return false
-end
-
--- Hilfsfunktion: gebe ein Asset (Tool/Accessory) an Spieler (serverseitig)
-local function giveAssetToPlayer(player, assetName)
-    if not assetName then return false, "No assetName" end
-    local asset = ReplicatedStorage:FindFirstChild(assetName)
-    if not asset then
-        return false, "Asset not found: "..assetName
-    end
-
-    local cloned = asset:Clone()
-    -- Wenn Tool -> in Backpack, Accessory -> an Character parenten
-    if cloned:IsA("Tool") then
-        cloned.Parent = player:FindFirstChild("Backpack") or player
-        return true, "Tool given: "..cloned.Name
-    elseif cloned:IsA("Accessory") then
-        -- Character muss vorhanden sein
-        local char = player.Character
-        if char then
-            cloned.Parent = char
-            return true, "Accessory parented to Character: "..cloned.Name
-        else
-            cloned.Parent = player -- fallback
-            return true, "Accessory given to player (no char): "..cloned.Name
-        end
-    else
-        -- Fallback: parent to Backpack or Character
-        local char = player.Character
-        if char then
-            cloned.Parent = char
-        else
-            cloned.Parent = player:FindFirstChild("Backpack") or player
-        end
-        return true, "Generic asset given: "..cloned.Name
-    end
-end
-
--- Handle remote requests from clients
-remote.OnServerEvent:Connect(function(player, action, payload)
-    -- action: string indicating request type
-    if action == "RequestPassAsset" and type(payload) == "string" then
-        local passEntry = PASS_MAP[payload]
-        if not passEntry then
-            remote:FireClient(player, "Response", false, "Unknown pass "..tostring(payload))
-            return
-        end
-        local allowed = playerAllowedForPass(player, passEntry.PassId)
-        if allowed then
-            local ok, msg = pcall(function()
-                return giveAssetToPlayer(player, passEntry.AssetName)
-            end)
-            if ok then
-                remote:FireClient(player, "Response", true, "Given asset for "..payload)
-            else
-                remote:FireClient(player, "Response", false, "Server error giving asset: "..tostring(msg))
-            end
-        else
-            remote:FireClient(player, "Response", false, "Not owner of pass or not whitelisted")
-        end
-
-    elseif action == "RequestGiveAllTools" and GIVE_ALL_TOOLS then
-        -- gebe alle Tools aus ReplicatedStorage (serverseitig)
-        local count = 0
-        for _, item in pairs(ReplicatedStorage:GetChildren()) do
-            if item:IsA("Tool") then
-                local ok, msg = pcall(function()
-                    local clone = item:Clone()
-                    clone.Parent = player:FindFirstChild("Backpack") or player
-                end)
-                if ok then count = count + 1 end
-            end
-        end
-        remote:FireClient(player, "Response", true, "Gave "..tostring(count).." tools.")
-    else
-        remote:FireClient(player, "Response", false, "Unknown action or not allowed")
-    end
+-- Close button
+local CloseButton = Instance.new("TextButton", MainFrame)
+CloseButton.Size = UDim2.new(0,30,0,30)
+CloseButton.Position = UDim2.new(1,-35,0,0)
+CloseButton.Text = "X"
+CloseButton.TextColor3 = Color3.fromRGB(255,100,100)
+CloseButton.Font = Enum.Font.GothamBold
+CloseButton.TextScaled = true
+CloseButton.BackgroundColor3 = Color3.fromRGB(35,35,35)
+local cbCorner = Instance.new("UICorner", CloseButton)
+cbCorner.CornerRadius = UDim.new(0.3,0)
+CloseButton.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
 end)
 
-print("[GiveAssetsServer] Ready, Remote:", remote:GetFullName())
+-- Scroll frame
+local Scroll = Instance.new("ScrollingFrame", MainFrame)
+Scroll.Size = UDim2.new(1,-10,1,-40)
+Scroll.Position = UDim2.new(0,5,0,35)
+Scroll.BackgroundTransparency = 1
+Scroll.CanvasSize = UDim2.new(0,0,0,0)
+Scroll.ScrollBarThickness = 6
+
+-- UIListLayout
+local Layout = Instance.new("UIListLayout", Scroll)
+Layout.SortOrder = Enum.SortOrder.LayoutOrder
+Layout.Padding = UDim.new(0,5)
+
+-- Funktion: alle RemoteEvents sammeln
+local function getAllRemoteEvents(parent)
+    local events = {}
+    for _, obj in pairs(parent:GetDescendants()) do
+        if obj:IsA("RemoteEvent") then
+            table.insert(events,obj)
+        end
+    end
+    return events
+end
+
+-- Alle RemoteEvents aus ReplicatedStorage und Workspace
+local remotes = {}
+for _, container in pairs({ReplicatedStorage, workspace}) do
+    for _, r in pairs(getAllRemoteEvents(container)) do
+        table.insert(remotes,r)
+    end
+end
+
+-- Buttons erstellen
+for i, remote in ipairs(remotes) do
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1,-10,0,30)
+    btn.BackgroundColor3 = Color3.fromRGB(30,30,30)
+    btn.TextColor3 = Color3.fromRGB(0,255,0)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextScaled = true
+    btn.Text = remote.Name
+    btn.Parent = Scroll
+    local corner = Instance.new("UICorner", btn)
+    corner.CornerRadius = UDim.new(0.1,0)
+    
+    -- Button Funktion: RemoteEvent feuern
+    btn.MouseButton1Click:Connect(function()
+        print("Firing RemoteEvent:", remote:GetFullName())
+        -- Hier kannst du beliebige Argumente hinzufügen, z.B: remote:FireServer(arg1, arg2)
+        local ok, err = pcall(function()
+            remote:FireServer() -- Default ohne Argumente
+        end)
+        if not ok then
+            warn("Fehler beim FireServer: "..tostring(err))
+        end
+    end)
+end
+
+-- Scroll CanvasSize automatisch anpassen
+Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    Scroll.CanvasSize = UDim2.new(0,0,0,Layout.AbsoluteContentSize.Y + 10)
+end)
