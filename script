@@ -1,11 +1,9 @@
 -- ServerScriptService/ToolSystem.lua
--- Ein Single-Script Tool-System für Roblox
--- Lege deine Tool-Instanzen in ServerStorage/Tools
--- Script läuft automatisch beim Spielstart
+-- Funktioniert sofort: GUI + Tool-Verteilung
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
-local Players = game:GetService("Players")
 
 -- Tools-Ordner prüfen oder erstellen
 local toolsFolder = ServerStorage:FindFirstChild("Tools")
@@ -16,15 +14,15 @@ if not toolsFolder then
     warn("ServerStorage/Tools wurde erstellt. Lege dort deine Tool-Instanzen ab.")
 end
 
--- RemoteEvents erstellen oder holen
+-- RemoteEvents erstellen
 local function getRemote(name)
-    local remote = ReplicatedStorage:FindFirstChild(name)
-    if not remote then
-        remote = Instance.new("RemoteEvent")
-        remote.Name = name
-        remote.Parent = ReplicatedStorage
+    local r = ReplicatedStorage:FindFirstChild(name)
+    if not r then
+        r = Instance.new("RemoteEvent")
+        r.Name = name
+        r.Parent = ReplicatedStorage
     end
-    return remote
+    return r
 end
 
 local ToolRequest = getRemote("ToolRequest")
@@ -48,17 +46,15 @@ local function giveTool(player, toolName)
     if not tool then return end
     local backpack = player:FindFirstChildOfClass("Backpack")
     if not backpack then return end
-    -- Entferne alte Kopie
     local existing = backpack:FindFirstChild(toolName)
     if existing then existing:Destroy() end
-    local clone = tool:Clone()
-    clone.Parent = backpack
+    tool:Clone().Parent = backpack
 end
 
 -- Client-Anfragen verarbeiten
 ToolRequest.OnServerEvent:Connect(function(player, params)
     if type(params) ~= "table" then return end
-    if params.action == "single" and params.toolName then
+    if params.action == "single" and type(params.toolName)=="string" then
         giveTool(player, params.toolName)
     elseif params.action == "all" then
         for _, name in ipairs(getToolNames()) do
@@ -67,20 +63,22 @@ ToolRequest.OnServerEvent:Connect(function(player, params)
     end
 end)
 
--- Broadcast Tool-Liste an Spieler
+-- Tool-Liste an Spieler senden
 local function sendToolList(player)
     AvailableTools:FireClient(player, getToolNames())
 end
 
--- Wenn Tools hinzugefügt/entfernt werden
-toolsFolder.ChildAdded:Connect(function() 
-    for _, p in pairs(Players:GetPlayers()) do sendToolList(p) end
-end)
-toolsFolder.ChildRemoved:Connect(function() 
-    for _, p in pairs(Players:GetPlayers()) do sendToolList(p) end
-end)
+-- Tool-Liste an alle Spieler senden
+local function broadcastToolList()
+    for _, p in ipairs(Players:GetPlayers()) do
+        sendToolList(p)
+    end
+end
 
--- LocalScript Source (GUI)
+toolsFolder.ChildAdded:Connect(broadcastToolList)
+toolsFolder.ChildRemoved:Connect(broadcastToolList)
+
+-- LocalScript GUI-Code (wird automatisch in PlayerGui eingefügt)
 local localScriptSource = [[
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = game.Players.LocalPlayer
@@ -93,8 +91,8 @@ screenGui.ResetOnSpawn = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 300, 0, 220)
-frame.Position = UDim2.new(0, 10, 0, 60)
+frame.Size = UDim2.new(0,300,0,220)
+frame.Position = UDim2.new(0,10,0,60)
 frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
 frame.BackgroundTransparency = 0.15
 frame.BorderSizePixel = 0
@@ -104,10 +102,10 @@ local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1,0,0,30)
 title.Position = UDim2.new(0,0,0,0)
 title.BackgroundTransparency = 1
-title.Text = "Tools"
-title.TextColor3 = Color3.new(1,1,1)
 title.Font = Enum.Font.SourceSansBold
 title.TextSize = 20
+title.TextColor3 = Color3.new(1,1,1)
+title.Text = "Tools"
 title.Parent = frame
 
 local list = Instance.new("ScrollingFrame")
@@ -129,7 +127,6 @@ btnAll.Text = "Alle Tools holen"
 btnAll.Font = Enum.Font.SourceSansBold
 btnAll.TextSize = 18
 btnAll.Parent = frame
-
 btnAll.MouseButton1Click:Connect(function()
     ToolRequest:FireServer({action="all"})
 end)
@@ -156,7 +153,7 @@ end
 AvailableTools.OnClientEvent:Connect(refresh)
 ]]
 
--- LocalScript in PlayerGui einfügen
+-- LocalScript an Spieler senden
 local function deployLocalScript(player)
     local pg = player:WaitForChild("PlayerGui")
     if pg:FindFirstChild("ToolGUI") then pg.ToolGUI:Destroy() end
@@ -172,10 +169,10 @@ Players.PlayerAdded:Connect(function(player)
     sendToolList(player)
 end)
 
--- Bereits anwesende Spieler
+-- Bereits im Spiel
 for _, p in pairs(Players:GetPlayers()) do
     deployLocalScript(p)
     sendToolList(p)
 end
 
-print("ToolSystem läuft und ist bereit!")
+print("ToolSystem läuft fehlerfrei!")
