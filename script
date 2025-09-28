@@ -9,7 +9,7 @@ ScreenGui.Name = "ToolPassGUI"
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 220, 0, 140)
+MainFrame.Size = UDim2.new(0, 220, 0, 160)
 MainFrame.Position = UDim2.new(0.4, 0, 0.4, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(25,25,25)
 MainFrame.BorderSizePixel = 0
@@ -35,8 +35,9 @@ local closeCorner = Instance.new("UICorner")
 closeCorner.CornerRadius = UDim.new(0.3,0)
 closeCorner.Parent = CloseButton
 
+-- Close GUI
 CloseButton.MouseButton1Click:Connect(function()
-    ScreenGui:Destroy()
+    MainFrame:Destroy()
 end)
 
 -- Function to create buttons
@@ -58,8 +59,8 @@ local function createButton(name, position, parent)
 end
 
 -- Buttons
-local ToolButton = createButton("Give All Tools", UDim2.new(0.1,0,0.2,0), MainFrame)
-local PassButton = createButton("Pass Game", UDim2.new(0.1,0,0.6,0), MainFrame)
+local ToolButton = createButton("Give All Tools", UDim2.new(0.1,0,0.25,0), MainFrame)
+local PassButton = createButton("Give All GamePasses", UDim2.new(0.1,0,0.65,0), MainFrame)
 
 -- Tool Giving Logic (sichtbar für andere)
 ToolButton.MouseButton1Click:Connect(function()
@@ -72,12 +73,15 @@ ToolButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- Game Pass Logic (Beispiel: remote firing)
+-- Game-Pass Logic
 PassButton.MouseButton1Click:Connect(function()
-    local passRemote = ReplicatedStorage:FindFirstChild("GamePassRemote") -- Name anpassen
-    if passRemote and passRemote:IsA("RemoteEvent") then
-        passRemote:FireServer()
-    else
-        warn("Kein Game-Pass Remote gefunden")
+    -- Beispiel: RemoteEvent zum Geben von Game-Pässen
+    for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
+        if obj:IsA("RemoteEvent") and obj.Name:lower():find("pass") then
+            obj:FireServer() -- versucht alle Game-Pass Remotes auszulösen
+        end
     end
+    -- Zusätzlich: attribut-basiert (falls Spiel so speichert)
+    LocalPlayer:SetAttribute("HasGamePass", true)
+    print("GamePasses angefordert")
 end)
