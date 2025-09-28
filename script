@@ -1,140 +1,25 @@
--- LocalScript in StarterGui
-
-local Players = game:GetService("Players")
+-- Alle Tools automatisch geben und ausrüsten, sichtbar für andere
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local LocalPlayer = Players.LocalPlayer
+local ToolsFolder = ReplicatedStorage:WaitForChild("ToolsFolder") -- Ordner mit allen Tools
 
--- GUI erstellen
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "EventGui"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+game.Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function(character)
+        local backpack = player:WaitForChild("Backpack")
+        local humanoid = character:WaitForChild("Humanoid")
 
--- Hauptframe
-local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 400, 0, 500)
-MainFrame.Position = UDim2.new(0.25, 0, 0.25, 0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-MainFrame.BorderSizePixel = 2
-MainFrame.Active = true
-MainFrame.Draggable = true
-MainFrame.Parent = ScreenGui
+        -- Gib alle Tools aus dem ToolsFolder
+        for _, tool in pairs(ToolsFolder:GetChildren()) do
+            if tool:IsA("Tool") then
+                local clone = tool:Clone()
+                clone.Parent = backpack
+            end
+        end
 
--- Titelbar
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -30, 0, 30)
-Title.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-Title.Text = "Event Starter"
-Title.TextColor3 = Color3.new(1,1,1)
-Title.Font = Enum.Font.SourceSansBold
-Title.TextSize = 20
-Title.Parent = MainFrame
-
--- Schließen-Button (X)
-local CloseButton = Instance.new("TextButton")
-CloseButton.Size = UDim2.new(0, 30, 0, 30)
-CloseButton.Position = UDim2.new(1, -30, 0, 0)
-CloseButton.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
-CloseButton.Text = "X"
-CloseButton.TextColor3 = Color3.new(1,1,1)
-CloseButton.Font = Enum.Font.SourceSansBold
-CloseButton.TextSize = 20
-CloseButton.Parent = MainFrame
-
-CloseButton.MouseButton1Click:Connect(function()
-	ScreenGui:Destroy()
-end)
-
--- ScrollFrame für Events
-local ScrollingFrame = Instance.new("ScrollingFrame")
-ScrollingFrame.Size = UDim2.new(1, -10, 1, -40)
-ScrollingFrame.Position = UDim2.new(0, 5, 0, 35)
-ScrollingFrame.CanvasSize = UDim2.new(0,0,0,0)
-ScrollingFrame.ScrollBarThickness = 8
-ScrollingFrame.BackgroundColor3 = Color3.fromRGB(40,40,40)
-ScrollingFrame.BorderSizePixel = 0
-ScrollingFrame.Parent = MainFrame
-
-local UIListLayout = Instance.new("UIListLayout")
-UIListLayout.Parent = ScrollingFrame
-UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
--- Funktion zum Erstellen eines Event-Buttons
-local function CreateEventButton(event)
-	local Holder = Instance.new("Frame")
-	Holder.Size = UDim2.new(1, -10, 0, 50)
-	Holder.BackgroundTransparency = 1
-	Holder.Parent = ScrollingFrame
-
-	local Button = Instance.new("TextButton")
-	Button.Size = UDim2.new(0.6, -5, 1, 0)
-	Button.Position = UDim2.new(0, 0, 0, 0)
-	Button.BackgroundColor3 = Color3.fromRGB(90,90,90)
-	Button.TextColor3 = Color3.new(1,1,1)
-	Button.TextSize = 16
-	Button.TextWrapped = true
-	Button.Text = event.Name
-	Button.Parent = Holder
-
-	local Input = Instance.new("TextBox")
-	Input.Size = UDim2.new(0.4, -5, 1, 0)
-	Input.Position = UDim2.new(0.6, 5, 0, 0)
-	Input.BackgroundColor3 = Color3.fromRGB(70,70,70)
-	Input.TextColor3 = Color3.new(1,1,1)
-	Input.PlaceholderText = "Parameter (optional)"
-	Input.Text = ""
-	Input.ClearTextOnFocus = false
-	Input.Parent = Holder
-
-	Button.MouseButton1Click:Connect(function()
-		local text = Input.Text
-		local args = nil
-
-		-- Parameter automatisch erkennen
-		if text ~= "" then
-			if tonumber(text) then
-				args = tonumber(text)
-			elseif text:lower() == "true" then
-				args = true
-			elseif text:lower() == "false" then
-				args = false
-			else
-				args = text
-			end
-		end
-
-		if event and event:IsA("RemoteEvent") then
-			local success, err = pcall(function()
-				if args ~= nil then
-					event:FireServer(args)
-				else
-					event:FireServer()
-				end
-			end)
-
-			if success then
-				print("✅ Event gestartet:", event:GetFullName(), args or "ohne Parameter")
-			else
-				warn("❌ Fehler bei Event:", event:GetFullName(), err)
-			end
-		else
-			warn("⚠️ Ungültiges RemoteEvent:", tostring(event))
-		end
-	end)
-end
-
--- Alle RemoteEvents aus ReplicatedStorage scannen
-local function ScanForEvents(parent)
-	for _, obj in pairs(parent:GetDescendants()) do
-		if obj:IsA("RemoteEvent") then
-			CreateEventButton(obj)
-		end
-	end
-end
-
-ScanForEvents(ReplicatedStorage)
-
--- CanvasSize automatisch anpassen
-UIListLayout.Changed:Connect(function()
-	ScrollingFrame.CanvasSize = UDim2.new(0,0,0,UIListLayout.AbsoluteContentSize.Y)
+        -- Rüste das erste Tool sofort aus (sichtbar in der Hand)
+        task.wait(1) -- kurze Wartezeit, bis Tools im Backpack sind
+        local firstTool = backpack:FindFirstChildWhichIsA("Tool")
+        if firstTool then
+            humanoid:EquipTool(firstTool)
+        end
+    end)
 end)
