@@ -1,5 +1,5 @@
 -- Funktionen GUI (öffnet sofort beim Start)
--- LocalScript (z.B. in StarterPlayerScripts)
+-- LocalScript (in StarterPlayerScripts)
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -12,7 +12,7 @@ local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "FunctionGUI"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = PlayerGui
-ScreenGui.Enabled = true -- sichtbar sofort
+ScreenGui.Enabled = true
 
 -- Main Frame
 local MainFrame = Instance.new("Frame")
@@ -24,7 +24,6 @@ MainFrame.BackgroundColor3 = Color3.fromRGB(50,50,50)
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = ScreenGui
 
--- Rundungen
 local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0.05,0)
 UICorner.Parent = MainFrame
@@ -32,7 +31,6 @@ UICorner.Parent = MainFrame
 -- Titel
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1,0,0,30)
-Title.Position = UDim2.new(0,0,0,0)
 Title.BackgroundTransparency = 1
 Title.Text = "Funktionen"
 Title.TextColor3 = Color3.fromRGB(200,200,200)
@@ -40,11 +38,10 @@ Title.Font = Enum.Font.GothamBold
 Title.TextSize = 22
 Title.Parent = MainFrame
 
--- Schließen Button (X)
+-- Schließen Button
 local CloseButton = Instance.new("TextButton")
 CloseButton.Size = UDim2.new(0,30,0,30)
 CloseButton.Position = UDim2.new(1,-36,0,2)
-CloseButton.AnchorPoint = Vector2.new(0,0)
 CloseButton.Text = "X"
 CloseButton.TextColor3 = Color3.fromRGB(255,100,100)
 CloseButton.Font = Enum.Font.GothamBold
@@ -58,7 +55,7 @@ CloseButton.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
 end)
 
--- Scroll Frame für Buttons
+-- Scroll Frame
 local Scroll = Instance.new("ScrollingFrame")
 Scroll.Size = UDim2.new(1,-10,1,-40)
 Scroll.Position = UDim2.new(0,5,0,35)
@@ -85,7 +82,6 @@ local function createButton(name, func)
     corner.CornerRadius = UDim.new(0.1,0)
 
     btn.MouseButton1Click:Connect(function()
-        -- Try/catch damit Fehler keine GUI killen
         local ok, err = pcall(func)
         if not ok then
             warn("Fehler in Funktion '"..tostring(name).."': "..tostring(err))
@@ -94,8 +90,7 @@ local function createButton(name, func)
     return btn
 end
 
--- ---------- Beispiel-Funktionen (hier anpassen) ----------
--- Float v1: einfache Aufwärts-Geschwindigkeit, bis erneut gedrückt
+-- Float v1
 local floatEnabled = false
 local floatConnection
 createButton("Float v1 (Toggle)", function()
@@ -105,7 +100,6 @@ createButton("Float v1 (Toggle)", function()
         if not char then return end
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
-        -- RenderStepped-Verbindung für sanftes Fliegen
         floatConnection = game:GetService("RunService").RenderStepped:Connect(function()
             if char and hrp then
                 local cam = workspace.CurrentCamera
@@ -121,44 +115,39 @@ createButton("Float v1 (Toggle)", function()
     end
 end)
 
--- Player ESP (einfaches Highlight für alle Spieler ausser dir)
+-- Player ESP
 local espEnabled = false
 local espTable = {}
 createButton("Player ESP (Toggle)", function()
     espEnabled = not espEnabled
     if espEnabled then
         for _, pl in pairs(Players:GetPlayers()) do
-            if pl ~= LocalPlayer then
-                if pl.Character and not espTable[pl] then
-                    local hig = Instance.new("Highlight")
-                    hig.Name = "ESP_Highlight"
-                    hig.FillColor = Color3.fromRGB(150,150,255)
-                    hig.OutlineColor = Color3.fromRGB(0,0,0)
-                    hig.FillTransparency = 0.7
-                    hig.OutlineTransparency = 0.5
-                    hig.Adornee = pl.Character
-                    hig.Parent = pl.Character
-                    espTable[pl] = hig
-                end
+            if pl ~= LocalPlayer and pl.Character and not espTable[pl] then
+                local hig = Instance.new("Highlight")
+                hig.Name = "ESP_Highlight"
+                hig.FillColor = Color3.fromRGB(150,150,255)
+                hig.OutlineColor = Color3.fromRGB(0,0,0)
+                hig.FillTransparency = 0.7
+                hig.OutlineTransparency = 0.5
+                hig.Adornee = pl.Character
+                hig.Parent = pl.Character
+                espTable[pl] = hig
             end
         end
-        -- Watch for new players/characters
         Players.PlayerAdded:Connect(function(pl)
             if espEnabled and pl ~= LocalPlayer then
                 pl.CharacterAdded:Connect(function(char)
-                    if espEnabled then
-                        wait(0.1)
-                        if char and not espTable[pl] then
-                            local hig = Instance.new("Highlight")
-                            hig.Name = "ESP_Highlight"
-                            hig.FillColor = Color3.fromRGB(150,150,255)
-                            hig.OutlineColor = Color3.fromRGB(0,0,0)
-                            hig.FillTransparency = 0.7
-                            hig.OutlineTransparency = 0.5
-                            hig.Adornee = char
-                            hig.Parent = char
-                            espTable[pl] = hig
-                        end
+                    task.wait(0.1)
+                    if espEnabled and char and not espTable[pl] then
+                        local hig = Instance.new("Highlight")
+                        hig.Name = "ESP_Highlight"
+                        hig.FillColor = Color3.fromRGB(150,150,255)
+                        hig.OutlineColor = Color3.fromRGB(0,0,0)
+                        hig.FillTransparency = 0.7
+                        hig.OutlineTransparency = 0.5
+                        hig.Adornee = char
+                        hig.Parent = char
+                        espTable[pl] = hig
                     end
                 end)
             end
@@ -171,12 +160,11 @@ createButton("Player ESP (Toggle)", function()
     end
 end)
 
--- Teleport to "Base" (simuliert): versucht nächstes Objekt mit Name "Base" oder "base" zu finden
+-- Teleport to Base
 createButton("Teleport to Base (try)", function()
     local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
     local hrp = char:FindFirstChild("HumanoidRootPart") or char:WaitForChild("HumanoidRootPart")
-    -- Suche nach Base im Workspace (case-insensitive)
-    local found = nil
+    local found
     for _, obj in pairs(workspace:GetDescendants()) do
         if obj:IsA("BasePart") and obj.Name:lower():find("base") then
             found = obj
@@ -186,11 +174,11 @@ createButton("Teleport to Base (try)", function()
     if found then
         hrp.CFrame = found.CFrame + Vector3.new(0, 5, 0)
     else
-        warn("Keine Base gefunden (suche nach Objekten mit 'base' im Namen).")
+        warn("Keine Base gefunden.")
     end
 end)
 
--- Beispiel: Liste und feuere RemoteEvents (einzeln)
+-- Liste RemoteEvents
 createButton("List RemoteEvents (print)", function()
     local function gather(parent)
         local out = {}
@@ -213,12 +201,12 @@ createButton("List RemoteEvents (print)", function()
     end
 end)
 
--- ---------- Canvas Size Update ----------
+-- Canvas Size Update
 Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     Scroll.CanvasSize = UDim2.new(0,0,0, Layout.AbsoluteContentSize.Y + 10)
 end)
 
--- ---------- Dragging (draggable MainFrame) ----------
+-- Draggable
 local dragging, dragInput, dragStart, startPos
 MainFrame.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -247,6 +235,5 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- ---------- Öffne GUI sofort (fokus optional) ----------
--- Das GUI ist bereits sichtbar; optional setzen wir den Fokus auf das GUI (für Gamepads)
+-- Fokus optional
 UserInputService.ModalEnabled = true
