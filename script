@@ -1,115 +1,96 @@
--- Steal Brainrot & Fly to Base (ServerScriptService)
+-- Client GUI + Status für Brainrot (StarterPlayerScripts)
 local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local PlayerGui = player:WaitForChild("PlayerGui")
+
+-- === GUI erstellen ===
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "BrainrotGUI"
+screenGui.Parent = PlayerGui
+screenGui.ResetOnSpawn = false
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 250, 0, 60)
+frame.Position = UDim2.new(0.5, -125, 0.05, 0)
+frame.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+frame.BorderSizePixel = 0
+frame.BackgroundTransparency = 0.1
+frame.Parent = screenGui
+frame.AnchorPoint = Vector2.new(0.5, 0)
+
+-- Icon
+local icon = Instance.new("ImageLabel")
+icon.Size = UDim2.new(0, 40, 0, 40)
+icon.Position = UDim2.new(0, 10, 0.5, -20)
+icon.BackgroundTransparency = 1
+icon.Image = "rbxassetid://12846818277" -- Beispiel lila Brainrot Icon (angepasst)
+icon.Parent = frame
+
+-- Text
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -60, 0.5, -5)
+title.Position = UDim2.new(0, 55, 0, 5)
+title.Text = "Brainrot Status"
+title.TextScaled = true
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.BackgroundTransparency = 1
+title.Font = Enum.Font.SourceSansBold
+title.Parent = frame
+
+-- Status Label
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(1, -60, 0.5, -5)
+statusLabel.Position = UDim2.new(0, 55, 0.5, 0)
+statusLabel.Text = "Bereit"
+statusLabel.TextScaled = true
+statusLabel.TextColor3 = Color3.fromRGB(200, 200, 255)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Font = Enum.Font.SourceSansBold
+statusLabel.Parent = frame
+
+-- Funktion, um Status zu ändern
+local function setStatus(text, color)
+    statusLabel.Text = text
+    if color then
+        statusLabel.TextColor3 = color
+    end
+end
+
+-- Verbindung zum Server-Script (RemoteEvent optional, falls du Effekte willst)
+-- Alternativ: wenn das Server-Script berührt-Events selbst behandelt, kannst du
+-- hier nur GUI Feedback machen. Wir patchen es auf Touched Events:
 local Workspace = game:GetService("Workspace")
-local RunService = game:GetService("RunService")
+local CollectionService = game:GetService("CollectionService")
 
--- Einstellungen
-local FLY_DURATION = 1.5       -- Sekunden Flug
-local FLY_HEIGHT_OFFSET = 6    -- Höhe über Base
-local DISABLE_COLLISION = true -- Kollision während Flug aus
-local MIN_HEALTH = 1           -- Mindestleben
-local DEBOUNCE_TIME = 1.5      -- Zeit bis erneuter Flug möglich
-
-local playerDebounce = {}
-
--- Nächstes Base-Part finden
-local function findNearestBase(position)
-    local basesFolder = Workspace:FindFirstChild("Bases")
-    if not basesFolder then return nil end
-    local nearest
-    local nearestDist = math.huge
-    for _, obj in ipairs(basesFolder:GetChildren()) do
-        if obj:IsA("BasePart") then
-            local d = (obj.Position - position).Magnitude
-            if d < nearestDist then
-                nearest = obj
-                nearestDist = d
-            end
-        end
-    end
-    return nearest
-end
-
--- Smooth serverseitiger Flug
-local function flyPlayerToBase(player, sourcePosition)
-    if not player.Character then return end
-    local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-    local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-    if not hrp or not humanoid then return end
-    if humanoid.Health < MIN_HEALTH then return end
-    if playerDebounce[player.UserId] then return end
-    playerDebounce[player.UserId] = true
-
-    local base = findNearestBase(sourcePosition or hrp.Position)
-    if not base then
-        playerDebounce[player.UserId] = nil
-        return
-    end
-
-    local startCFrame = hrp.CFrame
-    local targetCFrame = base.CFrame + Vector3.new(0, FLY_HEIGHT_OFFSET, 0)
-
-    local oldPlatform = humanoid.PlatformStand
-    humanoid.PlatformStand = true
-
-    local oldCanCollide = {}
-    if DISABLE_COLLISION then
-        for _, part in ipairs(player.Character:GetDescendants()) do
-            if part:IsA("BasePart") then
-                oldCanCollide[part] = part.CanCollide
-                part.CanCollide = false
-            end
-        end
-    end
-
-    local elapsed = 0
-    while elapsed < FLY_DURATION do
-        local dt = RunService.Heartbeat:Wait()
-        elapsed = math.min(FLY_DURATION, elapsed + dt)
-        local alpha = elapsed / FLY_DURATION
-        hrp.CFrame = startCFrame:Lerp(targetCFrame, alpha)
-    end
-
-    hrp.CFrame = targetCFrame
-    humanoid.PlatformStand = oldPlatform
-    if DISABLE_COLLISION then
-        for part, val in pairs(oldCanCollide) do
-            if part and part.Parent then
-                part.CanCollide = val
-            end
-        end
-    end
-
-    -- Debounce zurücksetzen
-    delay(DEBOUNCE_TIME, function()
-        playerDebounce[player.UserId] = nil
-    end)
-end
-
--- Wenn Spieler Brainrot berührt
-local function setupBrainrot(brainrot)
+-- Brainrot berührt → Status ändern
+local function monitorBrainrot(brainrot)
     if not brainrot:IsA("BasePart") then return end
     brainrot.Touched:Connect(function(hit)
         local char = hit.Parent
         if char and char:FindFirstChild("Humanoid") then
-            local player = Players:GetPlayerFromCharacter(char)
-            if player then
-                flyPlayerToBase(player, brainrot.Position)
+            local plr = Players:GetPlayerFromCharacter(char)
+            if plr == player then
+                -- Spieler hat Brainrot berührt
+                setStatus("Stehlen...", Color3.fromRGB(255, 200, 50))
+                wait(0.3)
+                setStatus("Geflogen!", Color3.fromRGB(50, 255, 50))
+                wait(2)
+                setStatus("Bereit", Color3.fromRGB(200, 200, 255))
             end
         end
     end)
 end
 
--- Alle existierenden Brainrot-Parts überwachen
+-- Alle vorhandenen Brainrot überwachen
 for _, obj in ipairs(Workspace:GetDescendants()) do
     if obj.Name == "Brainrot" then
-        setupBrainrot(obj)
+        monitorBrainrot(obj)
     end
 end
 
--- Neue Brainrot-Parts automatisch überwachen
+-- Neue Brainrot automatisch überwachen
 Workspace.DescendantAdded:Connect(function(obj)
     if obj.Name == "Brainrot" then
-        setupBrainrot(obj)
+        monitorBrainrot(obj)
     end
 end)
