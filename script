@@ -10,26 +10,27 @@ screenGui.Parent = PlayerGui
 screenGui.ResetOnSpawn = false
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 250, 0, 60)
-frame.Position = UDim2.new(0.5, -125, 0.05, 0)
-frame.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+frame.Size = UDim2.new(0, 300, 0, 120)
+frame.Position = UDim2.new(0.5, -150, 0.05, 0)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 35) -- dunkler Grau-Hintergrund
 frame.BorderSizePixel = 0
-frame.BackgroundTransparency = 0.1
+frame.BackgroundTransparency = 0.05
 frame.Parent = screenGui
 frame.AnchorPoint = Vector2.new(0.5, 0)
+frame.ClipsDescendants = true
 
 -- Icon
 local icon = Instance.new("ImageLabel")
 icon.Size = UDim2.new(0, 40, 0, 40)
-icon.Position = UDim2.new(0, 10, 0.5, -20)
+icon.Position = UDim2.new(0, 10, 0, 10)
 icon.BackgroundTransparency = 1
-icon.Image = "rbxassetid://12846818277" -- Beispiel lila Brainrot Icon (angepasst)
+icon.Image = "rbxassetid://12846818277"
 icon.Parent = frame
 
--- Text
+-- Titel
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, -60, 0.5, -5)
-title.Position = UDim2.new(0, 55, 0, 5)
+title.Size = UDim2.new(1, -60, 0, 20)
+title.Position = UDim2.new(0, 55, 0, 10)
 title.Text = "Brainrot Status"
 title.TextScaled = true
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -39,8 +40,8 @@ title.Parent = frame
 
 -- Status Label
 local statusLabel = Instance.new("TextLabel")
-statusLabel.Size = UDim2.new(1, -60, 0.5, -5)
-statusLabel.Position = UDim2.new(0, 55, 0.5, 0)
+statusLabel.Size = UDim2.new(1, -60, 0, 20)
+statusLabel.Position = UDim2.new(0, 55, 0, 40)
 statusLabel.Text = "Bereit"
 statusLabel.TextScaled = true
 statusLabel.TextColor3 = Color3.fromRGB(200, 200, 255)
@@ -56,21 +57,49 @@ local function setStatus(text, color)
     end
 end
 
--- Verbindung zum Server-Script (RemoteEvent optional, falls du Effekte willst)
--- Alternativ: wenn das Server-Script berührt-Events selbst behandelt, kannst du
--- hier nur GUI Feedback machen. Wir patchen es auf Touched Events:
-local Workspace = game:GetService("Workspace")
-local CollectionService = game:GetService("CollectionService")
+-- ON/OFF Variablen
+local stealBrainrot = false
+local autoSteal = false
 
--- Brainrot berührt → Status ändern
+-- Buttons erstellen
+local function createButton(name, posY, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 120, 0, 30)
+    btn.Position = UDim2.new(0, 10 + (posY * 130), 0, 70)
+    btn.Text = name .. ": OFF"
+    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.SourceSansBold
+    btn.TextScaled = true
+    btn.Parent = frame
+
+    btn.MouseButton1Click:Connect(function()
+        local state = callback()
+        btn.Text = name .. ": " .. (state and "ON" or "OFF")
+    end)
+end
+
+-- Button Logik
+createButton("Steal Brainrot", 0, function()
+    stealBrainrot = not stealBrainrot
+    return stealBrainrot
+end)
+
+createButton("Auto Steal", 1, function()
+    autoSteal = not autoSteal
+    return autoSteal
+end)
+
+-- Brainrot überwachen
+local Workspace = game:GetService("Workspace")
+
 local function monitorBrainrot(brainrot)
     if not brainrot:IsA("BasePart") then return end
     brainrot.Touched:Connect(function(hit)
         local char = hit.Parent
         if char and char:FindFirstChild("Humanoid") then
             local plr = Players:GetPlayerFromCharacter(char)
-            if plr == player then
-                -- Spieler hat Brainrot berührt
+            if plr == player and stealBrainrot then
                 setStatus("Stehlen...", Color3.fromRGB(255, 200, 50))
                 wait(0.3)
                 setStatus("Geflogen!", Color3.fromRGB(50, 255, 50))
@@ -92,5 +121,21 @@ end
 Workspace.DescendantAdded:Connect(function(obj)
     if obj.Name == "Brainrot" then
         monitorBrainrot(obj)
+    end
+end)
+
+-- Auto Steal Funktion
+spawn(function()
+    while true do
+        wait(0.5)
+        if autoSteal then
+            for _, obj in ipairs(Workspace:GetDescendants()) do
+                if obj.Name == "Brainrot" then
+                    -- Hier kann dein Server-RemoteEvent gefeuert werden, z.B.
+                    -- game:GetService("ReplicatedStorage").StealBrainrot:FireServer(obj)
+                    setStatus("Auto Steal aktiviert!", Color3.fromRGB(255, 150, 50))
+                end
+            end
+        end
     end
 end)
