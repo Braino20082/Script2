@@ -1,4 +1,4 @@
--- Lokales Roblox GUI mit Passwortschutz
+-- Lokales Roblox GUI mit Passwortschutz, Drag & Drop und X-Button
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 local StarterGui = player:WaitForChild("PlayerGui")
@@ -7,6 +7,27 @@ local StarterGui = player:WaitForChild("PlayerGui")
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "CustomGui"
 ScreenGui.Parent = StarterGui
+
+-- Haupt Frame (verschiebbar)
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0.9,0,0.9,0)
+MainFrame.Position = UDim2.new(0.05,0,0.05,0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(14,165,233)
+MainFrame.Visible = false
+MainFrame.Parent = ScreenGui
+MainFrame.Active = true
+MainFrame.Draggable = true -- GUI verschiebbar
+
+-- X Button zum Schließen
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0,40,0,40)
+CloseBtn.Position = UDim2.new(1,-45,0,5)
+CloseBtn.Text = "X"
+CloseBtn.BackgroundColor3 = Color3.fromRGB(239,68,68)
+CloseBtn.Parent = MainFrame
+CloseBtn.MouseButton1Click:Connect(function()
+	MainFrame.Visible = false
+end)
 
 -- Login Frame
 local LoginFrame = Instance.new("Frame")
@@ -28,14 +49,6 @@ PWButton.Position = UDim2.new(0.25,0,0.6,0)
 PWButton.Text = "Unlock"
 PWButton.BackgroundColor3 = Color3.fromRGB(34,197,94)
 PWButton.Parent = LoginFrame
-
--- Haupt Frame
-local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0.9,0,0.9,0)
-MainFrame.Position = UDim2.new(0.05,0,0.05,0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(14,165,233)
-MainFrame.Visible = false
-MainFrame.Parent = ScreenGui
 
 -- Sidebar
 local Sidebar = Instance.new("Frame")
@@ -131,12 +144,12 @@ local function createPlayerButton(plr)
 	btn.MouseButton1Click:Connect(function()
 		PlayerDetails:ClearAllChildren()
 		
-		local speedSlider = Instance.new("TextBox")
-		speedSlider.Size = UDim2.new(0.8,0,0,40)
-		speedSlider.Position = UDim2.new(0.1,0,0.1,0)
-		speedSlider.PlaceholderText = "Speed (0-200)"
-		speedSlider.Text = ""
-		speedSlider.Parent = PlayerDetails
+		local speedBox = Instance.new("TextBox")
+		speedBox.Size = UDim2.new(0.8,0,0,40)
+		speedBox.Position = UDim2.new(0.1,0,0.1,0)
+		speedBox.PlaceholderText = "Speed (0-200)"
+		speedBox.Text = ""
+		speedBox.Parent = PlayerDetails
 		
 		local flyBtn = Instance.new("TextButton")
 		flyBtn.Size = UDim2.new(0.5,0,0,40)
@@ -154,25 +167,26 @@ local function createPlayerButton(plr)
 		
 		local humanoid = plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
 		
-		-- Speed
-		speedSlider.FocusLost:Connect(function()
+		-- Speed setzen
+		speedBox.FocusLost:Connect(function()
 			if humanoid then
-				local value = tonumber(speedSlider.Text)
+				local value = tonumber(speedBox.Text)
 				if value and value <= 200 then
 					humanoid.WalkSpeed = value
 				end
 			end
 		end)
 		
-		-- Fly toggle (nur Dummy)
+		-- Fly toggle
 		local flyOn = false
 		flyBtn.MouseButton1Click:Connect(function()
 			flyOn = not flyOn
 			flyBtn.Text = flyOn and "Fly ON" or "Fly OFF"
 			flyBtn.BackgroundColor3 = flyOn and Color3.fromRGB(34,197,94) or Color3.fromRGB(239,68,68)
+			-- Dummy: echtes Fliegen müsste weiter implementiert werden
 		end)
 		
-		-- Fly Speed (nur Dummy)
+		-- Fly Speed Dummy
 		flySpeedBox.FocusLost:Connect(function()
 			print("Fly Speed geändert:", flySpeedBox.Text)
 		end)
