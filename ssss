@@ -1,207 +1,127 @@
--- Lokales Roblox GUI mit Passwortschutz, Drag & Drop und X-Button
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
-local StarterGui = player:WaitForChild("PlayerGui")
+-- LocalScript in StarterGui
 
 -- GUI erstellen
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "CustomGui"
-ScreenGui.Parent = StarterGui
+ScreenGui.Name = "TurtleGUI"
+ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
 
--- Haupt Frame (verschiebbar)
-local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0.9,0,0.9,0)
-MainFrame.Position = UDim2.new(0.05,0,0.05,0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(14,165,233)
-MainFrame.Visible = false
-MainFrame.Parent = ScreenGui
-MainFrame.Active = true
-MainFrame.Draggable = true -- GUI verschiebbar
+-- Schildkröten-Container
+local TurtleFolder = Instance.new("Folder")
+TurtleFolder.Name = "Turtles"
+TurtleFolder.Parent = ScreenGui
 
--- X Button zum Schließen
+-- GUI Hauptfenster
+local GuiFrame = Instance.new("Frame")
+GuiFrame.Size = UDim2.new(0.7,0,0.7,0)
+GuiFrame.Position = UDim2.new(0.15,0,0.15,0)
+GuiFrame.BackgroundColor3 = Color3.fromRGB(50,50,150)
+GuiFrame.BorderSizePixel = 0
+GuiFrame.Visible = false
+GuiFrame.Parent = ScreenGui
+GuiFrame.ClipsDescendants = true
+GuiFrame.ZIndex = 2
+
+-- Bunter Verlauf
+local UIGradient = Instance.new("UIGradient")
+UIGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 100, 100)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(100, 255, 150)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(100, 150, 255))
+})
+UIGradient.Rotation = 45
+UIGradient.Parent = GuiFrame
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0,15)
+UICorner.Parent = GuiFrame
+
+-- Close Button
 local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0,40,0,40)
-CloseBtn.Position = UDim2.new(1,-45,0,5)
+CloseBtn.Size = UDim2.new(0,30,0,30)
+CloseBtn.Position = UDim2.new(1,-40,0,10)
+CloseBtn.BackgroundTransparency = 1
 CloseBtn.Text = "X"
-CloseBtn.BackgroundColor3 = Color3.fromRGB(239,68,68)
-CloseBtn.Parent = MainFrame
+CloseBtn.TextColor3 = Color3.fromRGB(255,50,50)
+CloseBtn.TextScaled = true
+CloseBtn.Parent = GuiFrame
+
 CloseBtn.MouseButton1Click:Connect(function()
-	MainFrame.Visible = false
+    GuiFrame.Visible = false
 end)
 
--- Login Frame
-local LoginFrame = Instance.new("Frame")
-LoginFrame.Size = UDim2.new(0.4,0,0.3,0)
-LoginFrame.Position = UDim2.new(0.3,0,0.35,0)
-LoginFrame.BackgroundColor3 = Color3.fromRGB(79,70,229)
-LoginFrame.Parent = ScreenGui
-
-local PWBox = Instance.new("TextBox")
-PWBox.Size = UDim2.new(0.8,0,0.3,0)
-PWBox.Position = UDim2.new(0.1,0,0.2,0)
-PWBox.PlaceholderText = "Passwort"
-PWBox.Text = ""
-PWBox.Parent = LoginFrame
-
-local PWButton = Instance.new("TextButton")
-PWButton.Size = UDim2.new(0.5,0,0.2,0)
-PWButton.Position = UDim2.new(0.25,0,0.6,0)
-PWButton.Text = "Unlock"
-PWButton.BackgroundColor3 = Color3.fromRGB(34,197,94)
-PWButton.Parent = LoginFrame
-
--- Sidebar
+-- Sidebar (links)
 local Sidebar = Instance.new("Frame")
 Sidebar.Size = UDim2.new(0.2,0,1,0)
-Sidebar.BackgroundColor3 = Color3.fromRGB(30,30,60)
-Sidebar.Parent = MainFrame
+Sidebar.BackgroundColor3 = Color3.fromRGB(40,40,90)
+Sidebar.Parent = GuiFrame
 
--- Tabs
-local PlayerTab = Instance.new("TextButton")
-PlayerTab.Size = UDim2.new(1,0,0,50)
-PlayerTab.Position = UDim2.new(0,0,0,0)
-PlayerTab.Text = "Player"
-PlayerTab.BackgroundColor3 = Color3.fromRGB(50,50,120)
-PlayerTab.Parent = Sidebar
+local SidebarButton = Instance.new("TextButton")
+SidebarButton.Size = UDim2.new(0.8,0,0,50)
+SidebarButton.Position = UDim2.new(0.1,0,0.05,0)
+SidebarButton.BackgroundColor3 = Color3.fromRGB(80,80,150)
+SidebarButton.Text = "Player"
+SidebarButton.TextColor3 = Color3.fromRGB(255,255,255)
+SidebarButton.TextScaled = true
+SidebarButton.Parent = Sidebar
 
-local VoiceTab = Instance.new("TextButton")
-VoiceTab.Size = UDim2.new(1,0,0,50)
-VoiceTab.Position = UDim2.new(0,0,0,60)
-VoiceTab.Text = "Voice"
-VoiceTab.BackgroundColor3 = Color3.fromRGB(50,50,120)
-VoiceTab.Parent = Sidebar
-
--- Content Bereich
+-- Content (rechts)
 local Content = Instance.new("Frame")
 Content.Size = UDim2.new(0.8,0,1,0)
 Content.Position = UDim2.new(0.2,0,0,0)
-Content.BackgroundColor3 = Color3.fromRGB(0,0,0)
-Content.BackgroundTransparency = 0.3
-Content.Parent = MainFrame
+Content.BackgroundColor3 = Color3.fromRGB(30,30,70)
+Content.Parent = GuiFrame
 
--- Player List
-local PlayerList = Instance.new("Frame")
-PlayerList.Size = UDim2.new(0.3,0,1,0)
-PlayerList.BackgroundColor3 = Color3.fromRGB(40,40,80)
-PlayerList.Parent = Content
+local ContentText = Instance.new("TextLabel")
+ContentText.Size = UDim2.new(1,-20,1,-20)
+ContentText.Position = UDim2.new(0,10,0,10)
+ContentText.BackgroundTransparency = 1
+ContentText.Text = "Hier erscheinen die Funktionen."
+ContentText.TextColor3 = Color3.fromRGB(255,255,255)
+ContentText.TextScaled = true
+ContentText.Parent = Content
 
-local PlayerDetails = Instance.new("Frame")
-PlayerDetails.Size = UDim2.new(0.7,0,1,0)
-PlayerDetails.Position = UDim2.new(0.3,0,0,0)
-PlayerDetails.BackgroundColor3 = Color3.fromRGB(20,20,40)
-PlayerDetails.Parent = Content
-
--- Voice Bereich
-local VoiceFrame = Instance.new("Frame")
-VoiceFrame.Size = UDim2.new(1,0,1,0)
-VoiceFrame.BackgroundColor3 = Color3.fromRGB(20,20,40)
-VoiceFrame.Visible = false
-VoiceFrame.Parent = Content
-
-local VoiceBtn = Instance.new("TextButton")
-VoiceBtn.Size = UDim2.new(0.3,0,0.2,0)
-VoiceBtn.Position = UDim2.new(0.35,0,0.4,0)
-VoiceBtn.Text = "Voice Ban/Unban"
-VoiceBtn.BackgroundColor3 = Color3.fromRGB(239,68,68)
-VoiceBtn.Parent = VoiceFrame
-
-local VoiceStatus = Instance.new("TextLabel")
-VoiceStatus.Size = UDim2.new(1,0,0.1,0)
-VoiceStatus.Position = UDim2.new(0,0,0.7,0)
-VoiceStatus.Text = "Voice aktiv"
-VoiceStatus.BackgroundColor3 = Color3.fromRGB(0,0,0)
-VoiceStatus.TextColor3 = Color3.fromRGB(255,255,0)
-VoiceStatus.Parent = VoiceFrame
-
--- Passwort Check
-PWButton.MouseButton1Click:Connect(function()
-	if PWBox.Text == "1234" then
-		LoginFrame.Visible = false
-		MainFrame.Visible = true
-	end
+-- Player Funktionen laden
+SidebarButton.MouseButton1Click:Connect(function()
+    ContentText.Text = "⚡ Speed\n🛫 Fly ON/OFF\n🚀 Fly Speed"
 end)
 
--- Tab Umschalten
-PlayerTab.MouseButton1Click:Connect(function()
-	PlayerList.Visible = true
-	PlayerDetails.Visible = true
-	VoiceFrame.Visible = false
-end)
+-- Schildkröten Animation
+local TweenService = game:GetService("TweenService")
 
-VoiceTab.MouseButton1Click:Connect(function()
-	PlayerList.Visible = false
-	PlayerDetails.Visible = false
-	VoiceFrame.Visible = true
-end)
-
--- Player Buttons
-local function createPlayerButton(plr)
-	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.new(1,0,0,40)
-	btn.Text = plr.Name
-	btn.Parent = PlayerList
-	
-	btn.MouseButton1Click:Connect(function()
-		PlayerDetails:ClearAllChildren()
-		
-		local speedBox = Instance.new("TextBox")
-		speedBox.Size = UDim2.new(0.8,0,0,40)
-		speedBox.Position = UDim2.new(0.1,0,0.1,0)
-		speedBox.PlaceholderText = "Speed (0-200)"
-		speedBox.Text = ""
-		speedBox.Parent = PlayerDetails
-		
-		local flyBtn = Instance.new("TextButton")
-		flyBtn.Size = UDim2.new(0.5,0,0,40)
-		flyBtn.Position = UDim2.new(0.25,0,0.3,0)
-		flyBtn.Text = "Fly OFF"
-		flyBtn.BackgroundColor3 = Color3.fromRGB(239,68,68)
-		flyBtn.Parent = PlayerDetails
-		
-		local flySpeedBox = Instance.new("TextBox")
-		flySpeedBox.Size = UDim2.new(0.8,0,0,40)
-		flySpeedBox.Position = UDim2.new(0.1,0,0.5,0)
-		flySpeedBox.PlaceholderText = "Fly Speed (0-200)"
-		flySpeedBox.Text = ""
-		flySpeedBox.Parent = PlayerDetails
-		
-		local humanoid = plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
-		
-		-- Speed setzen
-		speedBox.FocusLost:Connect(function()
-			if humanoid then
-				local value = tonumber(speedBox.Text)
-				if value and value <= 200 then
-					humanoid.WalkSpeed = value
-				end
-			end
-		end)
-		
-		-- Fly toggle
-		local flyOn = false
-		flyBtn.MouseButton1Click:Connect(function()
-			flyOn = not flyOn
-			flyBtn.Text = flyOn and "Fly ON" or "Fly OFF"
-			flyBtn.BackgroundColor3 = flyOn and Color3.fromRGB(34,197,94) or Color3.fromRGB(239,68,68)
-			-- Dummy: echtes Fliegen müsste weiter implementiert werden
-		end)
-		
-		-- Fly Speed Dummy
-		flySpeedBox.FocusLost:Connect(function()
-			print("Fly Speed geändert:", flySpeedBox.Text)
-		end)
-	end)
+for i = 1, 5 do
+    -- Von links
+    local Turtle = Instance.new("TextLabel")
+    Turtle.Size = UDim2.new(0,100,0,100)
+    Turtle.Position = UDim2.new(0,-100,0,0.1*i)
+    Turtle.BackgroundTransparency = 1
+    Turtle.Text = "🐢"
+    Turtle.TextScaled = true
+    Turtle.Parent = TurtleFolder
+    
+    local tweenInfo = TweenInfo.new(10, Enum.EasingStyle.Linear)
+    local tween = TweenService:Create(Turtle, tweenInfo, {Position = UDim2.new(0.5,-50,0.1*i,0)})
+    tween:Play()
 end
 
-for _,plr in ipairs(Players:GetPlayers()) do
-	createPlayerButton(plr)
+for i = 1, 5 do
+    -- Von rechts
+    local Turtle = Instance.new("TextLabel")
+    Turtle.Size = UDim2.new(0,100,0,100)
+    Turtle.Position = UDim2.new(1,100,0,0.1*i)
+    Turtle.BackgroundTransparency = 1
+    Turtle.Text = "🐢"
+    Turtle.TextScaled = true
+    Turtle.Parent = TurtleFolder
+    
+    local tweenInfo = TweenInfo.new(10, Enum.EasingStyle.Linear)
+    local tween = TweenService:Create(Turtle, tweenInfo, {Position = UDim2.new(0.5,-50,0.1*i,0)})
+    tween:Play()
 end
 
-Players.PlayerAdded:Connect(createPlayerButton)
-
--- Voice Ban Dummy
-local voiceMuted = false
-VoiceBtn.MouseButton1Click:Connect(function()
-	voiceMuted = not voiceMuted
-	VoiceStatus.Text = voiceMuted and "Voice gebannt" or "Voice aktiv"
+-- Nach 10 Sekunden Schildkröten -> GUI sichtbar
+task.delay(10, function()
+    for _,t in pairs(TurtleFolder:GetChildren()) do
+        t:Destroy()
+    end
+    GuiFrame.Visible = true
 end)
