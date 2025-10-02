@@ -1,9 +1,15 @@
 -- LocalScript in StarterGui
 
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+
 -- GUI erstellen
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "TurtleGUI"
-ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 -- Schildkröten-Container
 local TurtleFolder = Instance.new("Folder")
@@ -18,10 +24,8 @@ GuiFrame.BackgroundColor3 = Color3.fromRGB(50,50,150)
 GuiFrame.BorderSizePixel = 0
 GuiFrame.Visible = false
 GuiFrame.Parent = ScreenGui
-GuiFrame.ClipsDescendants = true
 GuiFrame.ZIndex = 2
 
--- Bunter Verlauf
 local UIGradient = Instance.new("UIGradient")
 UIGradient.Color = ColorSequence.new({
     ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 100, 100)),
@@ -49,7 +53,7 @@ CloseBtn.MouseButton1Click:Connect(function()
     GuiFrame.Visible = false
 end)
 
--- Sidebar (links)
+-- Sidebar
 local Sidebar = Instance.new("Frame")
 Sidebar.Size = UDim2.new(0.2,0,1,0)
 Sidebar.BackgroundColor3 = Color3.fromRGB(40,40,90)
@@ -64,64 +68,158 @@ SidebarButton.TextColor3 = Color3.fromRGB(255,255,255)
 SidebarButton.TextScaled = true
 SidebarButton.Parent = Sidebar
 
--- Content (rechts)
+-- Content
 local Content = Instance.new("Frame")
 Content.Size = UDim2.new(0.8,0,1,0)
 Content.Position = UDim2.new(0.2,0,0,0)
 Content.BackgroundColor3 = Color3.fromRGB(30,30,70)
 Content.Parent = GuiFrame
 
-local ContentText = Instance.new("TextLabel")
-ContentText.Size = UDim2.new(1,-20,1,-20)
-ContentText.Position = UDim2.new(0,10,0,10)
-ContentText.BackgroundTransparency = 1
-ContentText.Text = "Hier erscheinen die Funktionen."
-ContentText.TextColor3 = Color3.fromRGB(255,255,255)
-ContentText.TextScaled = true
-ContentText.Parent = Content
+-- Variablen
+local FlyEnabled = false
+local FlySpeed = 50
+local BodyVelocity = nil
 
--- Player Funktionen laden
+-- Funktionen
+local function enableFly()
+	if not BodyVelocity then
+		BodyVelocity = Instance.new("BodyVelocity")
+		BodyVelocity.Velocity = Vector3.new(0,0,0)
+		BodyVelocity.MaxForce = Vector3.new(4000,4000,4000)
+		BodyVelocity.Parent = Character:WaitForChild("HumanoidRootPart")
+	end
+	FlyEnabled = true
+end
+
+local function disableFly()
+	if BodyVelocity then
+		BodyVelocity:Destroy()
+		BodyVelocity = nil
+	end
+	FlyEnabled = false
+end
+
+-- Steuerung fürs Fliegen
+game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
+	if FlyEnabled and not gpe then
+		if input.KeyCode == Enum.KeyCode.Space then
+			BodyVelocity.Velocity = Vector3.new(0, FlySpeed, 0)
+		elseif input.KeyCode == Enum.KeyCode.LeftShift then
+			BodyVelocity.Velocity = Vector3.new(0, -FlySpeed, 0)
+		end
+	end
+end)
+
+game:GetService("UserInputService").InputEnded:Connect(function(input, gpe)
+	if FlyEnabled and not gpe then
+		if input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.LeftShift then
+			BodyVelocity.Velocity = Vector3.new(0,0,0)
+		end
+	end
+end)
+
+-- Player Menü
 SidebarButton.MouseButton1Click:Connect(function()
-    ContentText.Text = "⚡ Speed\n🛫 Fly ON/OFF\n🚀 Fly Speed"
+	Content:ClearAllChildren()
+
+	-- Speed
+	local SpeedLabel = Instance.new("TextLabel")
+	SpeedLabel.Size = UDim2.new(1,0,0,40)
+	SpeedLabel.BackgroundTransparency = 1
+	SpeedLabel.Text = "Speed: "..Humanoid.WalkSpeed
+	SpeedLabel.TextColor3 = Color3.fromRGB(255,255,255)
+	SpeedLabel.TextScaled = true
+	SpeedLabel.Parent = Content
+
+	local SpeedSlider = Instance.new("TextButton")
+	SpeedSlider.Size = UDim2.new(1,0,0,40)
+	SpeedSlider.Position = UDim2.new(0,0,0,50)
+	SpeedSlider.BackgroundColor3 = Color3.fromRGB(80,80,150)
+	SpeedSlider.Text = "Increase Speed"
+	SpeedSlider.TextColor3 = Color3.fromRGB(255,255,255)
+	SpeedSlider.Parent = Content
+
+	SpeedSlider.MouseButton1Click:Connect(function()
+		Humanoid.WalkSpeed = Humanoid.WalkSpeed + 5
+		SpeedLabel.Text = "Speed: "..Humanoid.WalkSpeed
+	end)
+
+	-- Fly Toggle
+	local FlyBtn = Instance.new("TextButton")
+	FlyBtn.Size = UDim2.new(1,0,0,40)
+	FlyBtn.Position = UDim2.new(0,0,0,100)
+	FlyBtn.BackgroundColor3 = Color3.fromRGB(100,180,100)
+	FlyBtn.Text = "Fly: OFF"
+	FlyBtn.TextColor3 = Color3.fromRGB(255,255,255)
+	FlyBtn.Parent = Content
+
+	FlyBtn.MouseButton1Click:Connect(function()
+		if FlyEnabled then
+			disableFly()
+			FlyBtn.Text = "Fly: OFF"
+		else
+			enableFly()
+			FlyBtn.Text = "Fly: ON"
+		end
+	end)
+
+	-- Fly Speed
+	local FlySpeedLabel = Instance.new("TextLabel")
+	FlySpeedLabel.Size = UDim2.new(1,0,0,40)
+	FlySpeedLabel.Position = UDim2.new(0,0,0,150)
+	FlySpeedLabel.BackgroundTransparency = 1
+	FlySpeedLabel.Text = "Fly Speed: "..FlySpeed
+	FlySpeedLabel.TextColor3 = Color3.fromRGB(255,255,255)
+	FlySpeedLabel.TextScaled = true
+	FlySpeedLabel.Parent = Content
+
+	local FlySpeedBtn = Instance.new("TextButton")
+	FlySpeedBtn.Size = UDim2.new(1,0,0,40)
+	FlySpeedBtn.Position = UDim2.new(0,0,0,200)
+	FlySpeedBtn.BackgroundColor3 = Color3.fromRGB(80,80,150)
+	FlySpeedBtn.Text = "Increase Fly Speed"
+	FlySpeedBtn.TextColor3 = Color3.fromRGB(255,255,255)
+	FlySpeedBtn.Parent = Content
+
+	FlySpeedBtn.MouseButton1Click:Connect(function()
+		FlySpeed = FlySpeed + 5
+		FlySpeedLabel.Text = "Fly Speed: "..FlySpeed
+	end)
 end)
 
 -- Schildkröten Animation
-local TweenService = game:GetService("TweenService")
-
 for i = 1, 5 do
-    -- Von links
-    local Turtle = Instance.new("TextLabel")
-    Turtle.Size = UDim2.new(0,100,0,100)
-    Turtle.Position = UDim2.new(0,-100,0,0.1*i)
-    Turtle.BackgroundTransparency = 1
-    Turtle.Text = "🐢"
-    Turtle.TextScaled = true
-    Turtle.Parent = TurtleFolder
-    
-    local tweenInfo = TweenInfo.new(10, Enum.EasingStyle.Linear)
-    local tween = TweenService:Create(Turtle, tweenInfo, {Position = UDim2.new(0.5,-50,0.1*i,0)})
-    tween:Play()
+	local Turtle = Instance.new("TextLabel")
+	Turtle.Size = UDim2.new(0,100,0,100)
+	Turtle.Position = UDim2.new(0,-100,0,0.1*i)
+	Turtle.BackgroundTransparency = 1
+	Turtle.Text = "🐢"
+	Turtle.TextScaled = true
+	Turtle.Parent = TurtleFolder
+
+	local tweenInfo = TweenInfo.new(10, Enum.EasingStyle.Linear)
+	local tween = TweenService:Create(Turtle, tweenInfo, {Position = UDim2.new(0.5,-50,0.1*i,0)})
+	tween:Play()
 end
 
 for i = 1, 5 do
-    -- Von rechts
-    local Turtle = Instance.new("TextLabel")
-    Turtle.Size = UDim2.new(0,100,0,100)
-    Turtle.Position = UDim2.new(1,100,0,0.1*i)
-    Turtle.BackgroundTransparency = 1
-    Turtle.Text = "🐢"
-    Turtle.TextScaled = true
-    Turtle.Parent = TurtleFolder
-    
-    local tweenInfo = TweenInfo.new(10, Enum.EasingStyle.Linear)
-    local tween = TweenService:Create(Turtle, tweenInfo, {Position = UDim2.new(0.5,-50,0.1*i,0)})
-    tween:Play()
+	local Turtle = Instance.new("TextLabel")
+	Turtle.Size = UDim2.new(0,100,0,100)
+	Turtle.Position = UDim2.new(1,100,0,0.1*i)
+	Turtle.BackgroundTransparency = 1
+	Turtle.Text = "🐢"
+	Turtle.TextScaled = true
+	Turtle.Parent = TurtleFolder
+
+	local tweenInfo = TweenInfo.new(10, Enum.EasingStyle.Linear)
+	local tween = TweenService:Create(Turtle, tweenInfo, {Position = UDim2.new(0.5,-50,0.1*i,0)})
+	tween:Play()
 end
 
--- Nach 10 Sekunden Schildkröten -> GUI sichtbar
+-- GUI erst nach 10 Sekunden sichtbar
 task.delay(10, function()
-    for _,t in pairs(TurtleFolder:GetChildren()) do
-        t:Destroy()
-    end
-    GuiFrame.Visible = true
+	for _,t in pairs(TurtleFolder:GetChildren()) do
+		t:Destroy()
+	end
+	GuiFrame.Visible = true
 end)
