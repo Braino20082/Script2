@@ -2,6 +2,7 @@
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local Humanoid = Character:WaitForChild("Humanoid")
@@ -11,7 +12,7 @@ local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "TurtleGUI"
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
--- Schildkröten-Container
+-- Schildkröten Ordner
 local TurtleFolder = Instance.new("Folder")
 TurtleFolder.Name = "Turtles"
 TurtleFolder.Parent = ScreenGui
@@ -26,15 +27,6 @@ GuiFrame.Visible = false
 GuiFrame.Parent = ScreenGui
 GuiFrame.ZIndex = 2
 
-local UIGradient = Instance.new("UIGradient")
-UIGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 100, 100)),
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(100, 255, 150)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(100, 150, 255))
-})
-UIGradient.Rotation = 45
-UIGradient.Parent = GuiFrame
-
 local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0,15)
 UICorner.Parent = GuiFrame
@@ -43,9 +35,9 @@ UICorner.Parent = GuiFrame
 local CloseBtn = Instance.new("TextButton")
 CloseBtn.Size = UDim2.new(0,30,0,30)
 CloseBtn.Position = UDim2.new(1,-40,0,10)
-CloseBtn.BackgroundTransparency = 1
+CloseBtn.BackgroundColor3 = Color3.fromRGB(150,0,0)
 CloseBtn.Text = "X"
-CloseBtn.TextColor3 = Color3.fromRGB(255,50,50)
+CloseBtn.TextColor3 = Color3.fromRGB(255,255,255)
 CloseBtn.TextScaled = true
 CloseBtn.Parent = GuiFrame
 
@@ -62,7 +54,7 @@ Sidebar.Parent = GuiFrame
 local SidebarButton = Instance.new("TextButton")
 SidebarButton.Size = UDim2.new(0.8,0,0,50)
 SidebarButton.Position = UDim2.new(0.1,0,0.05,0)
-SidebarButton.BackgroundColor3 = Color3.fromRGB(80,80,150)
+SidebarButton.BackgroundColor3 = Color3.fromRGB(0,170,255)
 SidebarButton.Text = "Player"
 SidebarButton.TextColor3 = Color3.fromRGB(255,255,255)
 SidebarButton.TextScaled = true
@@ -72,7 +64,7 @@ SidebarButton.Parent = Sidebar
 local Content = Instance.new("Frame")
 Content.Size = UDim2.new(0.8,0,1,0)
 Content.Position = UDim2.new(0.2,0,0,0)
-Content.BackgroundColor3 = Color3.fromRGB(30,30,70)
+Content.BackgroundColor3 = Color3.fromRGB(25,25,50)
 Content.Parent = GuiFrame
 
 -- Variablen
@@ -80,7 +72,7 @@ local FlyEnabled = false
 local FlySpeed = 50
 local BodyVelocity = nil
 
--- Funktionen
+-- Flugfunktionen
 local function enableFly()
 	if not BodyVelocity then
 		BodyVelocity = Instance.new("BodyVelocity")
@@ -99,8 +91,7 @@ local function disableFly()
 	FlyEnabled = false
 end
 
--- Steuerung fürs Fliegen
-game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
+UserInputService.InputBegan:Connect(function(input, gpe)
 	if FlyEnabled and not gpe then
 		if input.KeyCode == Enum.KeyCode.Space then
 			BodyVelocity.Velocity = Vector3.new(0, FlySpeed, 0)
@@ -110,7 +101,7 @@ game:GetService("UserInputService").InputBegan:Connect(function(input, gpe)
 	end
 end)
 
-game:GetService("UserInputService").InputEnded:Connect(function(input, gpe)
+UserInputService.InputEnded:Connect(function(input, gpe)
 	if FlyEnabled and not gpe then
 		if input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.LeftShift then
 			BodyVelocity.Velocity = Vector3.new(0,0,0)
@@ -118,72 +109,90 @@ game:GetService("UserInputService").InputEnded:Connect(function(input, gpe)
 	end
 end)
 
+-- Slider erstellen
+local function createSlider(parent, labelText, min, max, default, callback)
+	local Label = Instance.new("TextLabel")
+	Label.Size = UDim2.new(1,0,0,40)
+	Label.BackgroundTransparency = 1
+	Label.Text = labelText..": "..default
+	Label.TextColor3 = Color3.fromRGB(255,255,255)
+	Label.TextScaled = true
+	Label.Parent = parent
+
+	local Bar = Instance.new("Frame")
+	Bar.Size = UDim2.new(1,-20,0,10)
+	Bar.Position = UDim2.new(0,10,0,50)
+	Bar.BackgroundColor3 = Color3.fromRGB(80,80,150)
+	Bar.Parent = parent
+
+	local Knob = Instance.new("Frame")
+	Knob.Size = UDim2.new(0,20,0,20)
+	Knob.Position = UDim2.new((default-min)/(max-min),-10,-0.5,0)
+	Knob.BackgroundColor3 = Color3.fromRGB(255,200,50)
+	Knob.Parent = Bar
+
+	local dragging = false
+	Knob.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			dragging = true
+		end
+	end)
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			dragging = false
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+			local rel = math.clamp((input.Position.X - Bar.AbsolutePosition.X)/Bar.AbsoluteSize.X,0,1)
+			Knob.Position = UDim2.new(rel,-10,-0.5,0)
+			local value = math.floor(min + (max-min)*rel)
+			Label.Text = labelText..": "..value
+			callback(value)
+		end
+	end)
+end
+
 -- Player Menü
 SidebarButton.MouseButton1Click:Connect(function()
 	Content:ClearAllChildren()
 
-	-- Speed
-	local SpeedLabel = Instance.new("TextLabel")
-	SpeedLabel.Size = UDim2.new(1,0,0,40)
-	SpeedLabel.BackgroundTransparency = 1
-	SpeedLabel.Text = "Speed: "..Humanoid.WalkSpeed
-	SpeedLabel.TextColor3 = Color3.fromRGB(255,255,255)
-	SpeedLabel.TextScaled = true
-	SpeedLabel.Parent = Content
-
-	local SpeedSlider = Instance.new("TextButton")
-	SpeedSlider.Size = UDim2.new(1,0,0,40)
-	SpeedSlider.Position = UDim2.new(0,0,0,50)
-	SpeedSlider.BackgroundColor3 = Color3.fromRGB(80,80,150)
-	SpeedSlider.Text = "Increase Speed"
-	SpeedSlider.TextColor3 = Color3.fromRGB(255,255,255)
-	SpeedSlider.Parent = Content
-
-	SpeedSlider.MouseButton1Click:Connect(function()
-		Humanoid.WalkSpeed = Humanoid.WalkSpeed + 5
-		SpeedLabel.Text = "Speed: "..Humanoid.WalkSpeed
+	-- Speed Slider
+	createSlider(Content,"Speed",16,200,Humanoid.WalkSpeed,function(val)
+		Humanoid.WalkSpeed = val
 	end)
 
 	-- Fly Toggle
 	local FlyBtn = Instance.new("TextButton")
-	FlyBtn.Size = UDim2.new(1,0,0,40)
-	FlyBtn.Position = UDim2.new(0,0,0,100)
-	FlyBtn.BackgroundColor3 = Color3.fromRGB(100,180,100)
+	FlyBtn.Size = UDim2.new(1,-20,0,50)
+	FlyBtn.Position = UDim2.new(0,10,0,120)
+	FlyBtn.BackgroundColor3 = Color3.fromRGB(200,50,50)
 	FlyBtn.Text = "Fly: OFF"
 	FlyBtn.TextColor3 = Color3.fromRGB(255,255,255)
+	FlyBtn.TextScaled = true
 	FlyBtn.Parent = Content
 
 	FlyBtn.MouseButton1Click:Connect(function()
 		if FlyEnabled then
 			disableFly()
+			FlyBtn.BackgroundColor3 = Color3.fromRGB(200,50,50)
 			FlyBtn.Text = "Fly: OFF"
 		else
 			enableFly()
+			FlyBtn.BackgroundColor3 = Color3.fromRGB(50,200,50)
 			FlyBtn.Text = "Fly: ON"
 		end
 	end)
 
-	-- Fly Speed
-	local FlySpeedLabel = Instance.new("TextLabel")
-	FlySpeedLabel.Size = UDim2.new(1,0,0,40)
-	FlySpeedLabel.Position = UDim2.new(0,0,0,150)
-	FlySpeedLabel.BackgroundTransparency = 1
-	FlySpeedLabel.Text = "Fly Speed: "..FlySpeed
-	FlySpeedLabel.TextColor3 = Color3.fromRGB(255,255,255)
-	FlySpeedLabel.TextScaled = true
-	FlySpeedLabel.Parent = Content
+	-- FlySpeed Slider
+	local FlySpeedFrame = Instance.new("Frame")
+	FlySpeedFrame.Size = UDim2.new(1,0,0,100)
+	FlySpeedFrame.Position = UDim2.new(0,0,0,200)
+	FlySpeedFrame.BackgroundTransparency = 1
+	FlySpeedFrame.Parent = Content
 
-	local FlySpeedBtn = Instance.new("TextButton")
-	FlySpeedBtn.Size = UDim2.new(1,0,0,40)
-	FlySpeedBtn.Position = UDim2.new(0,0,0,200)
-	FlySpeedBtn.BackgroundColor3 = Color3.fromRGB(80,80,150)
-	FlySpeedBtn.Text = "Increase Fly Speed"
-	FlySpeedBtn.TextColor3 = Color3.fromRGB(255,255,255)
-	FlySpeedBtn.Parent = Content
-
-	FlySpeedBtn.MouseButton1Click:Connect(function()
-		FlySpeed = FlySpeed + 5
-		FlySpeedLabel.Text = "Fly Speed: "..FlySpeed
+	createSlider(FlySpeedFrame,"Fly Speed",10,200,FlySpeed,function(val)
+		FlySpeed = val
 	end)
 end)
 
